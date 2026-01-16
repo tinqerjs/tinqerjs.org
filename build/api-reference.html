@@ -72,6 +72,8 @@
 <li><a href="#2-type-safe-contexts">2. Type-Safe Contexts</a>
 <ul>
 <li><a href="#21-createschema">2.1 createSchema</a></li>
+<li><a href="#22-withrowfilters">2.2 withRowFilters</a></li>
+<li><a href="#23-withcontext">2.3 withContext</a></li>
 </ul>
 </li>
 <li><a href="#3-helper-utilities">3. Helper Utilities</a>
@@ -424,6 +426,36 @@
   {},
 );
 </code></pre>
+<h3 id="22-withrowfilters" tabindex="-1"><a class="anchor" href="#22-withrowfilters" aria-hidden="true">#</a> 2.2 withRowFilters</h3>
+<p>Attaches row-level predicates to a schema so that SELECT/UPDATE/DELETE operations automatically include them (RLS-like behavior for query generation).</p>
+<p>Filters are provided per table, and <strong>all tables must be covered</strong>. For tables that should not be scoped by row filters, use <code>null</code>.</p>
+<pre class="hljs"><code><span class="hljs-keyword">import</span> { createSchema } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;@tinqerjs/tinqer&quot;</span>;
+
+<span class="hljs-keyword">interface</span> <span class="hljs-title class_">Schema</span> {
+  <span class="hljs-attr">users</span>: { <span class="hljs-attr">id</span>: <span class="hljs-built_in">number</span>; <span class="hljs-attr">orgId</span>: <span class="hljs-built_in">number</span>; <span class="hljs-attr">email</span>: <span class="hljs-built_in">string</span> };
+  <span class="hljs-attr">posts</span>: { <span class="hljs-attr">id</span>: <span class="hljs-built_in">number</span>; <span class="hljs-attr">orgId</span>: <span class="hljs-built_in">number</span>; <span class="hljs-attr">title</span>: <span class="hljs-built_in">string</span> };
+}
+
+<span class="hljs-keyword">type</span> <span class="hljs-title class_">PermisoContext</span> = { <span class="hljs-attr">orgId</span>: <span class="hljs-built_in">number</span> };
+
+<span class="hljs-keyword">const</span> baseSchema = createSchema&lt;<span class="hljs-title class_">Schema</span>&gt;();
+
+<span class="hljs-keyword">const</span> permisoSchema = baseSchema.<span class="hljs-property">withRowFilters</span>&lt;<span class="hljs-title class_">PermisoContext</span>&gt;({
+  <span class="hljs-attr">users</span>: <span class="hljs-function">(<span class="hljs-params">u, ctx</span>) =&gt;</span> u.<span class="hljs-property">orgId</span> === ctx.<span class="hljs-property">orgId</span>,
+  <span class="hljs-attr">posts</span>: <span class="hljs-function">(<span class="hljs-params">p, ctx</span>) =&gt;</span> p.<span class="hljs-property">orgId</span> === ctx.<span class="hljs-property">orgId</span>,
+});
+</code></pre>
+<p>Notes:</p>
+<ul>
+<li>Row filters are enforced for SELECT/UPDATE/DELETE only (not required for INSERT).</li>
+<li>If a row-filtered schema is used without context binding, it throws (fail closed).</li>
+<li>Unrestricted access is done by using the original/base schema directly.</li>
+</ul>
+<h3 id="23-withcontext" tabindex="-1"><a class="anchor" href="#23-withcontext" aria-hidden="true">#</a> 2.3 withContext</h3>
+<p>Binds a concrete context object to a row-filtered schema (typically per request).</p>
+<pre class="hljs"><code><span class="hljs-keyword">const</span> schema = permisoSchema.<span class="hljs-title function_">withContext</span>({ <span class="hljs-attr">orgId</span>: <span class="hljs-number">7</span> });
+</code></pre>
+<p>Once bound, you can pass the schema to <code>defineSelect</code> / <code>executeSelect</code> / <code>toSql</code> (and the UPDATE/DELETE equivalents) and the policy is applied automatically.</p>
 <hr>
 <h2 id="3-helper-utilities" tabindex="-1"><a class="anchor" href="#3-helper-utilities" aria-hidden="true">#</a> 3. Helper Utilities</h2>
 <h3 id="31-createqueryhelpers" tabindex="-1"><a class="anchor" href="#31-createqueryhelpers" aria-hidden="true">#</a> 3.1 createQueryHelpers</h3>
@@ -475,6 +507,8 @@
   <li class="toc-sub"><a href="#15-executeoptions-%26-sqlresult">1.5 ExecuteOptions & SqlResult</a></li>
   <li><a href="#2-type-safe-contexts">2. Type-Safe Contexts</a></li>
   <li class="toc-sub"><a href="#21-createschema">2.1 createSchema</a></li>
+  <li class="toc-sub"><a href="#22-withrowfilters">2.2 withRowFilters</a></li>
+  <li class="toc-sub"><a href="#23-withcontext">2.3 withContext</a></li>
   <li><a href="#3-helper-utilities">3. Helper Utilities</a></li>
   <li class="toc-sub"><a href="#31-createqueryhelpers">3.1 createQueryHelpers</a></li>
 </ul>
