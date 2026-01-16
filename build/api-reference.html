@@ -436,11 +436,11 @@
   <span class="hljs-attr">posts</span>: { <span class="hljs-attr">id</span>: <span class="hljs-built_in">number</span>; <span class="hljs-attr">orgId</span>: <span class="hljs-built_in">number</span>; <span class="hljs-attr">title</span>: <span class="hljs-built_in">string</span> };
 }
 
-<span class="hljs-keyword">type</span> <span class="hljs-title class_">PermisoContext</span> = { <span class="hljs-attr">orgId</span>: <span class="hljs-built_in">number</span> };
+<span class="hljs-keyword">type</span> <span class="hljs-title class_">ScopeContext</span> = { <span class="hljs-attr">orgId</span>: <span class="hljs-built_in">number</span> };
 
 <span class="hljs-keyword">const</span> baseSchema = createSchema&lt;<span class="hljs-title class_">Schema</span>&gt;();
 
-<span class="hljs-keyword">const</span> permisoSchema = baseSchema.<span class="hljs-property">withRowFilters</span>&lt;<span class="hljs-title class_">PermisoContext</span>&gt;({
+<span class="hljs-keyword">const</span> rowFilteredSchema = baseSchema.<span class="hljs-property">withRowFilters</span>&lt;<span class="hljs-title class_">ScopeContext</span>&gt;({
   <span class="hljs-attr">users</span>: <span class="hljs-function">(<span class="hljs-params">u, ctx</span>) =&gt;</span> u.<span class="hljs-property">orgId</span> === ctx.<span class="hljs-property">orgId</span>,
   <span class="hljs-attr">posts</span>: <span class="hljs-function">(<span class="hljs-params">p, ctx</span>) =&gt;</span> p.<span class="hljs-property">orgId</span> === ctx.<span class="hljs-property">orgId</span>,
 });
@@ -453,7 +453,7 @@
 </ul>
 <h3 id="23-withcontext" tabindex="-1"><a class="anchor" href="#23-withcontext" aria-hidden="true">#</a> 2.3 withContext</h3>
 <p>Binds a concrete context object to a row-filtered schema (typically per request).</p>
-<pre class="hljs"><code><span class="hljs-keyword">const</span> schema = permisoSchema.<span class="hljs-title function_">withContext</span>({ <span class="hljs-attr">orgId</span>: <span class="hljs-number">7</span> });
+<pre class="hljs"><code><span class="hljs-keyword">const</span> schema = rowFilteredSchema.<span class="hljs-title function_">withContext</span>({ <span class="hljs-attr">orgId</span>: <span class="hljs-number">7</span> });
 </code></pre>
 <p>Once bound, you can pass the schema to <code>defineSelect</code> / <code>executeSelect</code> / <code>toSql</code> (and the UPDATE/DELETE equivalents) and the policy is applied automatically.</p>
 <hr>

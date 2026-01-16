@@ -258,7 +258,7 @@ npm install @tinqerjs/better-sqlite3-adapter
 </code></pre>
 <p>Composition works with all operations: <code>defineSelect</code>, <code>defineInsert</code>, <code>defineUpdate</code>, <code>defineDelete</code>.</p>
 <h3 id="row-filters" tabindex="-1"><a class="anchor" href="#row-filters" aria-hidden="true">#</a> Row Filters</h3>
-<p>Row filters let you attach row-level predicates to a schema so that <strong>SELECT/UPDATE/DELETE</strong> automatically include them (useful for authorization scoping in systems like Permiso). This is enforced at plan finalization time and <strong>fails closed</strong> if you forget to bind context.</p>
+<p>Row filters let you attach row-level predicates to a schema so that <strong>SELECT/UPDATE/DELETE</strong> automatically include them (useful for authorization scoping). This is enforced at plan finalization time and <strong>fails closed</strong> if you forget to bind context.</p>
 <pre class="hljs"><code><span class="hljs-keyword">import</span> { createSchema } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;@tinqerjs/tinqer&quot;</span>;
 <span class="hljs-keyword">import</span> { executeSelect } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;@tinqerjs/pg-promise-adapter&quot;</span>;
 
@@ -267,18 +267,18 @@ npm install @tinqerjs/better-sqlite3-adapter
   <span class="hljs-attr">posts</span>: { <span class="hljs-attr">id</span>: <span class="hljs-built_in">number</span>; <span class="hljs-attr">orgId</span>: <span class="hljs-built_in">number</span>; <span class="hljs-attr">title</span>: <span class="hljs-built_in">string</span> };
 }
 
-<span class="hljs-keyword">type</span> <span class="hljs-title class_">PermisoContext</span> = { <span class="hljs-attr">orgId</span>: <span class="hljs-built_in">number</span> };
+<span class="hljs-keyword">type</span> <span class="hljs-title class_">ScopeContext</span> = { <span class="hljs-attr">orgId</span>: <span class="hljs-built_in">number</span> };
 
 <span class="hljs-keyword">const</span> dangerousUnrestrictedSchema = createSchema&lt;<span class="hljs-title class_">Schema</span>&gt;();
 
-<span class="hljs-keyword">const</span> permisoSchema = dangerousUnrestrictedSchema.<span class="hljs-property">withRowFilters</span>&lt;<span class="hljs-title class_">PermisoContext</span>&gt;({
+<span class="hljs-keyword">const</span> rowFilteredSchema = dangerousUnrestrictedSchema.<span class="hljs-property">withRowFilters</span>&lt;<span class="hljs-title class_">ScopeContext</span>&gt;({
   <span class="hljs-attr">users</span>: <span class="hljs-function">(<span class="hljs-params">u, ctx</span>) =&gt;</span> u.<span class="hljs-property">orgId</span> === ctx.<span class="hljs-property">orgId</span>,
   <span class="hljs-attr">posts</span>: <span class="hljs-function">(<span class="hljs-params">p, ctx</span>) =&gt;</span> p.<span class="hljs-property">orgId</span> === ctx.<span class="hljs-property">orgId</span>,
 });
 
-<span class="hljs-keyword">const</span> schema = permisoSchema.<span class="hljs-title function_">withContext</span>({ <span class="hljs-attr">orgId</span>: <span class="hljs-number">7</span> });
+<span class="hljs-keyword">const</span> schema = rowFilteredSchema.<span class="hljs-title function_">withContext</span>({ <span class="hljs-attr">orgId</span>: <span class="hljs-number">7</span> });
 
-<span class="hljs-comment">// Any SELECT/UPDATE/DELETE using `schema` will include the row filter automatically.</span>
+<span class="hljs-comment">// Any SELECT/UPDATE/DELETE using `schema` includes the row filter automatically.</span>
 <span class="hljs-keyword">await</span> <span class="hljs-title function_">executeSelect</span>(db, schema, <span class="hljs-function">(<span class="hljs-params">q</span>) =&gt;</span> q.<span class="hljs-title function_">from</span>(<span class="hljs-string">&quot;posts&quot;</span>), {});
 </code></pre>
 <p>Notes:</p>
