@@ -1417,6 +1417,56 @@
 <blockquote>
 <p><strong>Tip:</strong> When a property in <code>.values()</code> evaluates to <code>undefined</code>, the column is omitted from the INSERT. Explicit <code>null</code> values still emit <code>NULL</code>. The insert throws if every value is <code>undefined</code>.</p>
 </blockquote>
+<h4 id="insert-upserts-(on-conflict)" tabindex="-1"><a class="anchor" href="#insert-upserts-(on-conflict)" aria-hidden="true">#</a> INSERT Upserts (ON CONFLICT)</h4>
+<p>Tinqer supports upserts for PostgreSQL and SQLite via <code>ON CONFLICT</code>. Conflict targets use <strong>typed column selectors</strong> (no string column names). Composite conflict targets are specified by passing multiple selectors: <code>.onConflict((u) =&gt; u.col1, (u) =&gt; u.col2)</code>.</p>
+<pre class="hljs"><code><span class="hljs-comment">// Ignore duplicates (ON CONFLICT DO NOTHING)</span>
+<span class="hljs-keyword">const</span> upsertIgnore = <span class="hljs-title function_">toSql</span>(
+  <span class="hljs-title function_">defineInsert</span>(schema, <span class="hljs-function">(<span class="hljs-params">q, <span class="hljs-attr">params</span>: { email: <span class="hljs-built_in">string</span>; name: <span class="hljs-built_in">string</span> }</span>) =&gt;</span>
+    q
+      .<span class="hljs-title function_">insertInto</span>(<span class="hljs-string">&quot;users&quot;</span>)
+      .<span class="hljs-title function_">values</span>({ <span class="hljs-attr">email</span>: params.<span class="hljs-property">email</span>, <span class="hljs-attr">name</span>: params.<span class="hljs-property">name</span> })
+      .<span class="hljs-title function_">onConflict</span>(<span class="hljs-function">(<span class="hljs-params">u</span>) =&gt;</span> u.<span class="hljs-property">email</span>)
+      .<span class="hljs-title function_">doNothing</span>(),
+  ),
+  { <span class="hljs-attr">email</span>: <span class="hljs-string">&quot;alice@example.com&quot;</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">&quot;Alice&quot;</span> },
+);
+
+<span class="hljs-comment">// Update on conflict (ON CONFLICT DO UPDATE SET ...)</span>
+<span class="hljs-keyword">const</span> upsertUpdate = <span class="hljs-title function_">toSql</span>(
+  <span class="hljs-title function_">defineInsert</span>(schema, <span class="hljs-function">(<span class="hljs-params">q, <span class="hljs-attr">params</span>: { email: <span class="hljs-built_in">string</span>; name: <span class="hljs-built_in">string</span> }</span>) =&gt;</span>
+    q
+      .<span class="hljs-title function_">insertInto</span>(<span class="hljs-string">&quot;users&quot;</span>)
+      .<span class="hljs-title function_">values</span>({ <span class="hljs-attr">email</span>: params.<span class="hljs-property">email</span>, <span class="hljs-attr">name</span>: params.<span class="hljs-property">name</span> })
+      .<span class="hljs-title function_">onConflict</span>(<span class="hljs-function">(<span class="hljs-params">u</span>) =&gt;</span> u.<span class="hljs-property">email</span>)
+      .<span class="hljs-title function_">doUpdateSet</span>(<span class="hljs-function">(<span class="hljs-params">_existing, excluded</span>) =&gt;</span> ({
+        <span class="hljs-attr">name</span>: excluded.<span class="hljs-property">name</span>,
+      })),
+  ),
+  { <span class="hljs-attr">email</span>: <span class="hljs-string">&quot;alice@example.com&quot;</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">&quot;Alice&quot;</span> },
+);
+</code></pre>
+<p>Generated SQL:</p>
+<pre class="hljs"><code><span class="hljs-comment">-- PostgreSQL</span>
+<span class="hljs-keyword">INSERT INTO</span> &quot;users&quot; (&quot;email&quot;, &quot;name&quot;)
+<span class="hljs-keyword">VALUES</span> ($(email), $(name))
+<span class="hljs-keyword">ON</span> CONFLICT (&quot;email&quot;) DO NOTHING
+
+<span class="hljs-keyword">INSERT INTO</span> &quot;users&quot; (&quot;email&quot;, &quot;name&quot;)
+<span class="hljs-keyword">VALUES</span> ($(email), $(name))
+<span class="hljs-keyword">ON</span> CONFLICT (&quot;email&quot;) DO <span class="hljs-keyword">UPDATE</span> <span class="hljs-keyword">SET</span> &quot;name&quot; <span class="hljs-operator">=</span> EXCLUDED.&quot;name&quot;
+
+<span class="hljs-comment">-- SQLite</span>
+<span class="hljs-keyword">INSERT INTO</span> &quot;users&quot; (&quot;email&quot;, &quot;name&quot;)
+<span class="hljs-keyword">VALUES</span> (<span class="hljs-variable">@email</span>, <span class="hljs-variable">@name</span>)
+<span class="hljs-keyword">ON</span> CONFLICT (&quot;email&quot;) DO NOTHING
+
+<span class="hljs-keyword">INSERT INTO</span> &quot;users&quot; (&quot;email&quot;, &quot;name&quot;)
+<span class="hljs-keyword">VALUES</span> (<span class="hljs-variable">@email</span>, <span class="hljs-variable">@name</span>)
+<span class="hljs-keyword">ON</span> CONFLICT (&quot;email&quot;) DO <span class="hljs-keyword">UPDATE</span> <span class="hljs-keyword">SET</span> &quot;name&quot; <span class="hljs-operator">=</span> excluded.&quot;name&quot;
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> <code>onConflict(...)</code> must be followed by either <code>.doNothing()</code> or <code>.doUpdateSet(...)</code>.</p>
+</blockquote>
 <h4 id="insert-with-returning-clause" tabindex="-1"><a class="anchor" href="#insert-with-returning-clause" aria-hidden="true">#</a> INSERT with RETURNING Clause</h4>
 <p>Both PostgreSQL and SQLite (3.35.0+) support the RETURNING clause to retrieve values from inserted rows:</p>
 <pre class="hljs"><code><span class="hljs-comment">// Return specific columns</span>

@@ -168,6 +168,19 @@ npm install @tinqerjs/better-sqlite3-adapter
 );
 <span class="hljs-comment">// insert.sql: INSERT INTO &quot;users&quot; (&quot;name&quot;, &quot;age&quot;) VALUES ($(name), $(age))</span>
 
+<span class="hljs-comment">// UPSERT (PostgreSQL + SQLite)</span>
+<span class="hljs-keyword">const</span> upsert = <span class="hljs-title function_">toSql</span>(
+  <span class="hljs-title function_">defineInsert</span>(schema, <span class="hljs-function">(<span class="hljs-params">q, <span class="hljs-attr">params</span>: { id: <span class="hljs-built_in">number</span>; name: <span class="hljs-built_in">string</span>; age: <span class="hljs-built_in">number</span> }</span>) =&gt;</span>
+    q
+      .<span class="hljs-title function_">insertInto</span>(<span class="hljs-string">&quot;users&quot;</span>)
+      .<span class="hljs-title function_">values</span>({ <span class="hljs-attr">id</span>: params.<span class="hljs-property">id</span>, <span class="hljs-attr">name</span>: params.<span class="hljs-property">name</span>, <span class="hljs-attr">age</span>: params.<span class="hljs-property">age</span> })
+      .<span class="hljs-title function_">onConflict</span>(<span class="hljs-function">(<span class="hljs-params">u</span>) =&gt;</span> u.<span class="hljs-property">id</span>)
+      .<span class="hljs-title function_">doUpdateSet</span>(<span class="hljs-function">(<span class="hljs-params">_existing, excluded</span>) =&gt;</span> ({ <span class="hljs-attr">name</span>: excluded.<span class="hljs-property">name</span>, <span class="hljs-attr">age</span>: excluded.<span class="hljs-property">age</span> })),
+  ),
+  { <span class="hljs-attr">id</span>: <span class="hljs-number">1</span>, <span class="hljs-attr">name</span>: <span class="hljs-string">&quot;Alice&quot;</span>, <span class="hljs-attr">age</span>: <span class="hljs-number">30</span> },
+);
+<span class="hljs-comment">// upsert.sql: INSERT INTO &quot;users&quot; (...) VALUES (...) ON CONFLICT (&quot;id&quot;) DO UPDATE SET ...</span>
+
 <span class="hljs-comment">// UPDATE</span>
 <span class="hljs-keyword">const</span> update = <span class="hljs-title function_">toSql</span>(
   <span class="hljs-title function_">defineUpdate</span>(schema, <span class="hljs-function">(<span class="hljs-params">q, <span class="hljs-attr">params</span>: { newAge: <span class="hljs-built_in">number</span>; userId: <span class="hljs-built_in">number</span> }</span>) =&gt;</span>
