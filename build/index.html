@@ -257,6 +257,36 @@ npm install @tinqerjs/better-sqlite3-adapter
 <span class="hljs-title function_">toSql</span>(plan, { <span class="hljs-attr">baseAge</span>: <span class="hljs-number">18</span>, <span class="hljs-attr">maxAge</span>: <span class="hljs-number">65</span> });
 </code></pre>
 <p>Composition works with all operations: <code>defineSelect</code>, <code>defineInsert</code>, <code>defineUpdate</code>, <code>defineDelete</code>.</p>
+<h3 id="row-filters" tabindex="-1"><a class="anchor" href="#row-filters" aria-hidden="true">#</a> Row Filters</h3>
+<p>Row filters let you attach row-level predicates to a schema so that <strong>SELECT/UPDATE/DELETE</strong> automatically include them (useful for authorization scoping in systems like Permiso). This is enforced at plan finalization time and <strong>fails closed</strong> if you forget to bind context.</p>
+<pre class="hljs"><code><span class="hljs-keyword">import</span> { createSchema } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;@tinqerjs/tinqer&quot;</span>;
+<span class="hljs-keyword">import</span> { executeSelect } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;@tinqerjs/pg-promise-adapter&quot;</span>;
+
+<span class="hljs-keyword">interface</span> <span class="hljs-title class_">Schema</span> {
+  <span class="hljs-attr">users</span>: { <span class="hljs-attr">id</span>: <span class="hljs-built_in">number</span>; <span class="hljs-attr">orgId</span>: <span class="hljs-built_in">number</span>; <span class="hljs-attr">email</span>: <span class="hljs-built_in">string</span> };
+  <span class="hljs-attr">posts</span>: { <span class="hljs-attr">id</span>: <span class="hljs-built_in">number</span>; <span class="hljs-attr">orgId</span>: <span class="hljs-built_in">number</span>; <span class="hljs-attr">title</span>: <span class="hljs-built_in">string</span> };
+}
+
+<span class="hljs-keyword">type</span> <span class="hljs-title class_">PermisoContext</span> = { <span class="hljs-attr">orgId</span>: <span class="hljs-built_in">number</span> };
+
+<span class="hljs-keyword">const</span> dangerousUnrestrictedSchema = createSchema&lt;<span class="hljs-title class_">Schema</span>&gt;();
+
+<span class="hljs-keyword">const</span> permisoSchema = dangerousUnrestrictedSchema.<span class="hljs-property">withRowFilters</span>&lt;<span class="hljs-title class_">PermisoContext</span>&gt;({
+  <span class="hljs-attr">users</span>: <span class="hljs-function">(<span class="hljs-params">u, ctx</span>) =&gt;</span> u.<span class="hljs-property">orgId</span> === ctx.<span class="hljs-property">orgId</span>,
+  <span class="hljs-attr">posts</span>: <span class="hljs-function">(<span class="hljs-params">p, ctx</span>) =&gt;</span> p.<span class="hljs-property">orgId</span> === ctx.<span class="hljs-property">orgId</span>,
+});
+
+<span class="hljs-keyword">const</span> schema = permisoSchema.<span class="hljs-title function_">withContext</span>({ <span class="hljs-attr">orgId</span>: <span class="hljs-number">7</span> });
+
+<span class="hljs-comment">// Any SELECT/UPDATE/DELETE using `schema` will include the row filter automatically.</span>
+<span class="hljs-keyword">await</span> <span class="hljs-title function_">executeSelect</span>(db, schema, <span class="hljs-function">(<span class="hljs-params">q</span>) =&gt;</span> q.<span class="hljs-title function_">from</span>(<span class="hljs-string">&quot;posts&quot;</span>), {});
+</code></pre>
+<p>Notes:</p>
+<ul>
+<li>Filters must be provided for every table (set a table’s filter to <code>null</code> to opt out).</li>
+<li>Row filters are not automatically applied to INSERT statements.</li>
+<li>Unrestricted access is done by using the base schema (<code>dangerousUnrestrictedSchema</code>) directly.</li>
+</ul>
 <h3 id="joins" tabindex="-1"><a class="anchor" href="#joins" aria-hidden="true">#</a> Joins</h3>
 <p>Tinqer mirrors LINQ semantics. Inner joins have a dedicated operator; left outer and cross joins follow the familiar <code>groupJoin</code>/<code>selectMany</code> patterns from C#.</p>
 <h4 id="inner-join" tabindex="-1"><a class="anchor" href="#inner-join" aria-hidden="true">#</a> Inner Join</h4>
@@ -530,6 +560,7 @@ npm install @tinqerjs/better-sqlite3-adapter
   <li><a href="#core-features">Core Features</a></li>
   <li class="toc-sub"><a href="#type-safe-query-building">Type-Safe Query Building</a></li>
   <li class="toc-sub"><a href="#query-composition">Query Composition</a></li>
+  <li class="toc-sub"><a href="#row-filters">Row Filters</a></li>
   <li class="toc-sub"><a href="#joins">Joins</a></li>
   <li class="toc-sub"><a href="#grouping-and-aggregation">Grouping and Aggregation</a></li>
   <li class="toc-sub"><a href="#window-functions">Window Functions</a></li>
