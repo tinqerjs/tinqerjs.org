@@ -83,6 +83,7 @@
 <ul>
 <li><a href="#31-single-key-ascending">3.1 Single Key Ascending</a></li>
 <li><a href="#32-mixed-ordering">3.2 Mixed Ordering</a></li>
+<li><a href="#33-reverse">3.3 Reverse</a></li>
 </ul>
 </li>
 <li><a href="#4-distinct-operations">4. Distinct Operations</a></li>
@@ -122,6 +123,7 @@
 <ul>
 <li><a href="#101-any-operation">10.1 Any Operation</a></li>
 <li><a href="#102-all-operation">10.2 All Operation</a></li>
+<li><a href="#103-contains-operation">10.3 Contains Operation</a></li>
 </ul>
 </li>
 <li><a href="#11-element-retrieval">11. Element Retrieval</a></li>
@@ -428,6 +430,27 @@
 <pre class="hljs"><code><span class="hljs-comment">-- SQLite</span>
 <span class="hljs-keyword">SELECT</span> <span class="hljs-operator">*</span> <span class="hljs-keyword">FROM</span> &quot;users&quot; <span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> &quot;departmentId&quot; <span class="hljs-keyword">ASC</span>, &quot;salary&quot; <span class="hljs-keyword">DESC</span>, &quot;name&quot; <span class="hljs-keyword">ASC</span>
 </code></pre>
+<h3 id="33-reverse" tabindex="-1"><a class="anchor" href="#33-reverse" aria-hidden="true">#</a> 3.3 Reverse</h3>
+<p><code>reverse()</code> flips the effective ordering. If an explicit <code>orderBy</code>/<code>thenBy</code> chain exists, Tinqer inverts the direction of each ordering. If no <code>orderBy</code> exists, Tinqer emits <code>ORDER BY 1 DESC</code>.</p>
+<pre class="hljs"><code><span class="hljs-keyword">const</span> reversed = <span class="hljs-title function_">toSql</span>(
+  <span class="hljs-title function_">defineSelect</span>(schema, <span class="hljs-function">(<span class="hljs-params">q</span>) =&gt;</span>
+    q
+      .<span class="hljs-title function_">from</span>(<span class="hljs-string">&quot;users&quot;</span>)
+      .<span class="hljs-title function_">orderBy</span>(<span class="hljs-function">(<span class="hljs-params">u</span>) =&gt;</span> u.<span class="hljs-property">name</span>)
+      .<span class="hljs-title function_">reverse</span>(),
+  ),
+  {},
+);
+</code></pre>
+<pre class="hljs"><code><span class="hljs-comment">-- PostgreSQL</span>
+<span class="hljs-keyword">SELECT</span> <span class="hljs-operator">*</span> <span class="hljs-keyword">FROM</span> &quot;users&quot; <span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> &quot;name&quot; <span class="hljs-keyword">DESC</span>
+
+<span class="hljs-comment">-- SQLite</span>
+<span class="hljs-keyword">SELECT</span> <span class="hljs-operator">*</span> <span class="hljs-keyword">FROM</span> &quot;users&quot; <span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> &quot;name&quot; <span class="hljs-keyword">DESC</span>
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> <code>reverse()</code> after <code>take()</code>/<code>skip()</code> is not supported. Apply <code>reverse()</code> before pagination.</p>
+</blockquote>
 <hr>
 <h2 id="4-distinct-operations" tabindex="-1"><a class="anchor" href="#4-distinct-operations" aria-hidden="true">#</a> 4. Distinct Operations</h2>
 <pre class="hljs"><code><span class="hljs-keyword">const</span> departments = <span class="hljs-title function_">toSql</span>(
@@ -1244,6 +1267,26 @@
 <span class="hljs-keyword">SELECT</span> <span class="hljs-keyword">CASE</span> <span class="hljs-keyword">WHEN</span> <span class="hljs-keyword">NOT</span> <span class="hljs-keyword">EXISTS</span>(<span class="hljs-keyword">SELECT</span> <span class="hljs-number">1</span> <span class="hljs-keyword">FROM</span> &quot;users&quot; <span class="hljs-keyword">WHERE</span> <span class="hljs-keyword">NOT</span> (&quot;active&quot; <span class="hljs-operator">=</span> @__p1)) <span class="hljs-keyword">THEN</span> <span class="hljs-number">1</span> <span class="hljs-keyword">ELSE</span> <span class="hljs-number">0</span> <span class="hljs-keyword">END</span>
 </code></pre>
 <hr>
+<h3 id="103-contains-operation" tabindex="-1"><a class="anchor" href="#103-contains-operation" aria-hidden="true">#</a> 10.3 Contains Operation</h3>
+<p><code>contains(value)</code> is a terminal operation that returns <code>true</code>/<code>false</code>. It requires a scalar <code>.select(...)</code> projection (for example, <code>.select((u) =&gt; u.id)</code>), and is not supported with <code>take()</code>/<code>skip()</code>.</p>
+<pre class="hljs"><code><span class="hljs-keyword">const</span> hasId = <span class="hljs-title function_">toSql</span>(
+  <span class="hljs-title function_">defineSelect</span>(schema, <span class="hljs-function">(<span class="hljs-params">q</span>) =&gt;</span>
+    q
+      .<span class="hljs-title function_">from</span>(<span class="hljs-string">&quot;users&quot;</span>)
+      .<span class="hljs-title function_">select</span>(<span class="hljs-function">(<span class="hljs-params">u</span>) =&gt;</span> u.<span class="hljs-property">id</span>)
+      .<span class="hljs-title function_">contains</span>(<span class="hljs-number">1</span>),
+  ),
+  {},
+);
+</code></pre>
+<pre class="hljs"><code><span class="hljs-comment">-- PostgreSQL</span>
+<span class="hljs-keyword">SELECT</span> <span class="hljs-keyword">CASE</span> <span class="hljs-keyword">WHEN</span> <span class="hljs-keyword">EXISTS</span>(<span class="hljs-keyword">SELECT</span> <span class="hljs-number">1</span> <span class="hljs-keyword">FROM</span> (<span class="hljs-keyword">SELECT</span> &quot;id&quot; <span class="hljs-keyword">AS</span> &quot;__tinqer_value&quot; <span class="hljs-keyword">FROM</span> &quot;users&quot;) <span class="hljs-keyword">AS</span> &quot;__tinqer_contains&quot; <span class="hljs-keyword">WHERE</span> &quot;__tinqer_contains&quot;.&quot;__tinqer_value&quot; <span class="hljs-operator">=</span> $(__p1)) <span class="hljs-keyword">THEN</span> <span class="hljs-number">1</span> <span class="hljs-keyword">ELSE</span> <span class="hljs-number">0</span> <span class="hljs-keyword">END</span>
+</code></pre>
+<pre class="hljs"><code><span class="hljs-comment">-- SQLite</span>
+<span class="hljs-keyword">SELECT</span> <span class="hljs-keyword">CASE</span> <span class="hljs-keyword">WHEN</span> <span class="hljs-keyword">EXISTS</span>(<span class="hljs-keyword">SELECT</span> <span class="hljs-number">1</span> <span class="hljs-keyword">FROM</span> (<span class="hljs-keyword">SELECT</span> &quot;id&quot; <span class="hljs-keyword">AS</span> &quot;__tinqer_value&quot; <span class="hljs-keyword">FROM</span> &quot;users&quot;) <span class="hljs-keyword">AS</span> &quot;__tinqer_contains&quot; <span class="hljs-keyword">WHERE</span> &quot;__tinqer_contains&quot;.&quot;__tinqer_value&quot; <span class="hljs-operator">=</span> @__p1) <span class="hljs-keyword">THEN</span> <span class="hljs-number">1</span> <span class="hljs-keyword">ELSE</span> <span class="hljs-number">0</span> <span class="hljs-keyword">END</span>
+</code></pre>
+<pre class="hljs"><code><span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;__p1&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span> <span class="hljs-punctuation">}</span>
+</code></pre>
 <h2 id="11-element-retrieval" tabindex="-1"><a class="anchor" href="#11-element-retrieval" aria-hidden="true">#</a> 11. Element Retrieval</h2>
 <p>Methods <code>first</code>, <code>firstOrDefault</code>, <code>single</code>, <code>singleOrDefault</code>, <code>last</code>, and <code>lastOrDefault</code> retrieve single elements.</p>
 <pre class="hljs"><code><span class="hljs-keyword">const</span> newestUser = <span class="hljs-title function_">toSql</span>(
@@ -1257,15 +1300,15 @@
 );
 </code></pre>
 <pre class="hljs"><code><span class="hljs-comment">-- PostgreSQL</span>
-<span class="hljs-keyword">SELECT</span> <span class="hljs-operator">*</span> <span class="hljs-keyword">FROM</span> &quot;users&quot; <span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> &quot;createdAt&quot; <span class="hljs-keyword">ASC</span> LIMIT <span class="hljs-number">1</span>
+<span class="hljs-keyword">SELECT</span> <span class="hljs-operator">*</span> <span class="hljs-keyword">FROM</span> &quot;users&quot; <span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> &quot;createdAt&quot; <span class="hljs-keyword">DESC</span> LIMIT <span class="hljs-number">1</span>
 </code></pre>
 <pre class="hljs"><code><span class="hljs-comment">-- SQLite</span>
-<span class="hljs-keyword">SELECT</span> <span class="hljs-operator">*</span> <span class="hljs-keyword">FROM</span> &quot;users&quot; <span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> &quot;createdAt&quot; <span class="hljs-keyword">ASC</span> LIMIT <span class="hljs-number">1</span>
+<span class="hljs-keyword">SELECT</span> <span class="hljs-operator">*</span> <span class="hljs-keyword">FROM</span> &quot;users&quot; <span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> &quot;createdAt&quot; <span class="hljs-keyword">DESC</span> LIMIT <span class="hljs-number">1</span>
 </code></pre>
 <ul>
 <li><code>single</code> ensures at most one result</li>
-<li><code>firstOrDefault</code> / <code>singleOrDefault</code> return <code>NULL</code> when no rows match</li>
-<li><code>last</code> and <code>lastOrDefault</code> automatically reverse ordering when no explicit <code>orderBy</code> exists</li>
+<li><code>firstOrDefault</code> / <code>singleOrDefault</code> / <code>lastOrDefault</code> return <code>null</code> when no rows match</li>
+<li><code>last</code> and <code>lastOrDefault</code> reverse ordering (or emit <code>ORDER BY 1 DESC</code> when no explicit <code>orderBy</code> exists)</li>
 </ul>
 <hr>
 <h2 id="12-materialisation" tabindex="-1"><a class="anchor" href="#12-materialisation" aria-hidden="true">#</a> 12. Materialisation</h2>
@@ -1506,7 +1549,7 @@
 );
 </code></pre>
 <h3 id="142-update-statements" tabindex="-1"><a class="anchor" href="#142-update-statements" aria-hidden="true">#</a> 14.2 UPDATE Statements</h3>
-<p>The <code>update</code> function creates UPDATE operations. The <code>.set()</code> method uses direct object syntax (no lambda wrapping required).</p>
+<p>The <code>update</code> function creates UPDATE operations. The <code>.set()</code> method accepts either an object literal or an arrow function returning an object literal (to support column self-reference).</p>
 <h4 id="basic-update" tabindex="-1"><a class="anchor" href="#basic-update" aria-hidden="true">#</a> Basic UPDATE</h4>
 <pre class="hljs"><code><span class="hljs-keyword">import</span> { createSchema, defineUpdate } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;@tinqerjs/tinqer&quot;</span>;
 <span class="hljs-keyword">import</span> { toSql } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;@tinqerjs/pg-promise-adapter&quot;</span>;
@@ -1537,6 +1580,28 @@
 <blockquote>
 <p><strong>Tip:</strong> If any property in the <code>.set()</code> object evaluates to <code>undefined</code> (for example because a parameter was omitted), Tinqer simply skips that column. Explicit <code>null</code> values still generate <code>SET column = NULL</code>. The query builder throws if every assignment resolves to <code>undefined</code>.</p>
 </blockquote>
+<h4 id="update-with-column-self-reference" tabindex="-1"><a class="anchor" href="#update-with-column-self-reference" aria-hidden="true">#</a> UPDATE with Column Self-Reference</h4>
+<pre class="hljs"><code><span class="hljs-keyword">const</span> updateStmt = <span class="hljs-title function_">toSql</span>(
+  <span class="hljs-title function_">defineUpdate</span>(schema, <span class="hljs-function">(<span class="hljs-params">q, <span class="hljs-attr">params</span>: { userId: <span class="hljs-built_in">number</span>; delta: <span class="hljs-built_in">number</span> }</span>) =&gt;</span>
+    q
+      .<span class="hljs-title function_">update</span>(<span class="hljs-string">&quot;users&quot;</span>)
+      .<span class="hljs-title function_">set</span>(<span class="hljs-function">(<span class="hljs-params">u</span>) =&gt;</span> ({ <span class="hljs-attr">view_count</span>: u.<span class="hljs-property">view_count</span> + params.<span class="hljs-property">delta</span> }))
+      .<span class="hljs-title function_">where</span>(<span class="hljs-function">(<span class="hljs-params">u</span>) =&gt;</span> u.<span class="hljs-property">id</span> === params.<span class="hljs-property">userId</span>),
+  ),
+  { <span class="hljs-attr">userId</span>: <span class="hljs-number">1</span>, <span class="hljs-attr">delta</span>: <span class="hljs-number">1</span> },
+);
+</code></pre>
+<p>Generated SQL:</p>
+<pre class="hljs"><code><span class="hljs-comment">-- PostgreSQL</span>
+<span class="hljs-keyword">UPDATE</span> &quot;users&quot;
+<span class="hljs-keyword">SET</span> &quot;view_count&quot; <span class="hljs-operator">=</span> (&quot;view_count&quot; <span class="hljs-operator">+</span> $(delta))
+<span class="hljs-keyword">WHERE</span> &quot;id&quot; <span class="hljs-operator">=</span> $(userId)
+
+<span class="hljs-comment">-- SQLite</span>
+<span class="hljs-keyword">UPDATE</span> &quot;users&quot;
+<span class="hljs-keyword">SET</span> &quot;view_count&quot; <span class="hljs-operator">=</span> (&quot;view_count&quot; <span class="hljs-operator">+</span> <span class="hljs-variable">@delta</span>)
+<span class="hljs-keyword">WHERE</span> &quot;id&quot; <span class="hljs-operator">=</span> <span class="hljs-variable">@userId</span>
+</code></pre>
 <h4 id="update-with-external-parameters" tabindex="-1"><a class="anchor" href="#update-with-external-parameters" aria-hidden="true">#</a> UPDATE with External Parameters</h4>
 <p>External variables must be passed via the params object:</p>
 <pre class="hljs"><code><span class="hljs-keyword">const</span> updateStmt = <span class="hljs-title function_">toSql</span>(
@@ -2156,6 +2221,7 @@ Full table updates are dangerous and must be explicitly allowed.
   <li><a href="#3-ordering">3. Ordering</a></li>
   <li class="toc-sub"><a href="#31-single-key-ascending">3.1 Single Key Ascending</a></li>
   <li class="toc-sub"><a href="#32-mixed-ordering">3.2 Mixed Ordering</a></li>
+  <li class="toc-sub"><a href="#33-reverse">3.3 Reverse</a></li>
   <li><a href="#4-distinct-operations">4. Distinct Operations</a></li>
   <li><a href="#5-pagination">5. Pagination</a></li>
   <li class="toc-sub"><a href="#51-offset%2Flimit-pattern">5.1 Offset/Limit Pattern</a></li>
@@ -2180,6 +2246,7 @@ Full table updates are dangerous and must be explicitly allowed.
   <li><a href="#10-quantifiers">10. Quantifiers</a></li>
   <li class="toc-sub"><a href="#101-any-operation">10.1 Any Operation</a></li>
   <li class="toc-sub"><a href="#102-all-operation">10.2 All Operation</a></li>
+  <li class="toc-sub"><a href="#103-contains-operation">10.3 Contains Operation</a></li>
   <li><a href="#11-element-retrieval">11. Element Retrieval</a></li>
   <li><a href="#12-materialisation">12. Materialisation</a></li>
   <li><a href="#13-parameters-and-auto-parameterisation">13. Parameters and Auto-Parameterisation</a></li>

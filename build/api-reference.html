@@ -94,29 +94,46 @@
 <p>Creates SELECT query plans, generates SQL, or executes queries.</p>
 <p><strong>Signatures</strong></p>
 <pre class="hljs"><code><span class="hljs-comment">// Plan definition (from @tinqerjs/tinqer)</span>
-<span class="hljs-keyword">function</span> defineSelect&lt;<span class="hljs-title class_">TSchema</span>, <span class="hljs-title class_">TParams</span>, <span class="hljs-title class_">TResult</span>&gt;(
+<span class="hljs-keyword">function</span> defineSelect&lt;<span class="hljs-title class_">TSchema</span>, <span class="hljs-title class_">TParams</span>, <span class="hljs-title class_">TRecord</span>&gt;(
   <span class="hljs-attr">schema</span>: <span class="hljs-title class_">DatabaseSchema</span>&lt;<span class="hljs-title class_">TSchema</span>&gt;,
-  <span class="hljs-attr">queryBuilder</span>: <span class="hljs-function">(<span class="hljs-params">
+  <span class="hljs-attr">builder</span>: <span class="hljs-function">(<span class="hljs-params">
     <span class="hljs-attr">q</span>: <span class="hljs-title class_">QueryBuilder</span>&lt;<span class="hljs-title class_">TSchema</span>&gt;,
     <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span>,
     <span class="hljs-attr">helpers</span>: <span class="hljs-title class_">QueryHelpers</span>,
-  </span>) =&gt;</span> <span class="hljs-title class_">Queryable</span>&lt;<span class="hljs-title class_">TResult</span>&gt; | <span class="hljs-title class_">OrderedQueryable</span>&lt;<span class="hljs-title class_">TResult</span>&gt; | <span class="hljs-title class_">TerminalQuery</span>&lt;<span class="hljs-title class_">TResult</span>&gt;,
-  <span class="hljs-attr">paramDefaults</span>?: <span class="hljs-title class_">TParams</span>,
-): <span class="hljs-title class_">SelectPlanHandle</span>&lt;<span class="hljs-title class_">TResult</span>, <span class="hljs-title class_">TParams</span>&gt; | <span class="hljs-title class_">SelectTerminalHandle</span>&lt;<span class="hljs-title class_">TResult</span>, <span class="hljs-title class_">TParams</span>&gt;;
+  </span>) =&gt;</span> <span class="hljs-title class_">Queryable</span>&lt;<span class="hljs-title class_">TRecord</span>&gt; | <span class="hljs-title class_">OrderedQueryable</span>&lt;<span class="hljs-title class_">TRecord</span>&gt;,
+  <span class="hljs-attr">options</span>?: <span class="hljs-title class_">ParseQueryOptions</span>,
+): <span class="hljs-title class_">SelectPlanHandle</span>&lt;<span class="hljs-title class_">TRecord</span>, <span class="hljs-title class_">TParams</span>&gt;;
+
+<span class="hljs-keyword">function</span> defineSelect&lt;<span class="hljs-title class_">TSchema</span>, <span class="hljs-title class_">TParams</span>, <span class="hljs-title class_">TResult</span>&gt;(
+  <span class="hljs-attr">schema</span>: <span class="hljs-title class_">DatabaseSchema</span>&lt;<span class="hljs-title class_">TSchema</span>&gt;,
+  <span class="hljs-attr">builder</span>: <span class="hljs-function">(<span class="hljs-params">
+    <span class="hljs-attr">q</span>: <span class="hljs-title class_">QueryBuilder</span>&lt;<span class="hljs-title class_">TSchema</span>&gt;,
+    <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span>,
+    <span class="hljs-attr">helpers</span>: <span class="hljs-title class_">QueryHelpers</span>,
+  </span>) =&gt;</span> <span class="hljs-title class_">TerminalQuery</span>&lt;<span class="hljs-title class_">TResult</span>&gt;,
+  <span class="hljs-attr">options</span>?: <span class="hljs-title class_">ParseQueryOptions</span>,
+): <span class="hljs-title class_">SelectTerminalHandle</span>&lt;<span class="hljs-title class_">TResult</span>, <span class="hljs-title class_">TParams</span>&gt;;
 
 <span class="hljs-comment">// SQL generation (from adapter packages)</span>
 <span class="hljs-keyword">function</span> toSql&lt;<span class="hljs-title class_">TParams</span>&gt;(
   <span class="hljs-attr">plan</span>: <span class="hljs-title class_">SelectPlanHandle</span>&lt;<span class="hljs-built_in">unknown</span>, <span class="hljs-title class_">TParams</span>&gt; | <span class="hljs-title class_">SelectTerminalHandle</span>&lt;<span class="hljs-built_in">unknown</span>, <span class="hljs-title class_">TParams</span>&gt;,
   <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span>,
-): { <span class="hljs-attr">sql</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span> &amp; <span class="hljs-title class_">Record</span>&lt;<span class="hljs-built_in">string</span>, <span class="hljs-built_in">unknown</span>&gt; };
+): { <span class="hljs-attr">sql</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">params</span>: <span class="hljs-title class_">Record</span>&lt;<span class="hljs-built_in">string</span>, <span class="hljs-built_in">unknown</span>&gt; };
 
 <span class="hljs-comment">// Execution (from adapter packages)</span>
-<span class="hljs-keyword">async</span> <span class="hljs-keyword">function</span> executeSelect&lt;<span class="hljs-title class_">TResult</span>, <span class="hljs-title class_">TParams</span>&gt;(
+<span class="hljs-keyword">async</span> <span class="hljs-keyword">function</span> executeSelect&lt;<span class="hljs-title class_">TSchema</span>, <span class="hljs-title class_">TParams</span>, <span class="hljs-title class_">TQuery</span>&gt;(
   <span class="hljs-attr">db</span>: <span class="hljs-title class_">PgDatabase</span> | <span class="hljs-title class_">BetterSqlite3Database</span>,
-  <span class="hljs-attr">plan</span>: <span class="hljs-title class_">SelectPlanHandle</span>&lt;<span class="hljs-title class_">TResult</span>, <span class="hljs-title class_">TParams</span>&gt; | <span class="hljs-title class_">SelectTerminalHandle</span>&lt;<span class="hljs-title class_">TResult</span>, <span class="hljs-title class_">TParams</span>&gt;,
+  <span class="hljs-attr">schema</span>: <span class="hljs-title class_">DatabaseSchema</span>&lt;<span class="hljs-title class_">TSchema</span>&gt;,
+  <span class="hljs-attr">builder</span>: <span class="hljs-function">(<span class="hljs-params"><span class="hljs-attr">q</span>: <span class="hljs-title class_">QueryBuilder</span>&lt;<span class="hljs-title class_">TSchema</span>&gt;, <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span>, <span class="hljs-attr">helpers</span>: <span class="hljs-title class_">QueryHelpers</span></span>) =&gt;</span> <span class="hljs-title class_">TQuery</span>,
   <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span>,
-  <span class="hljs-attr">options</span>?: <span class="hljs-title class_">ExecuteOptions</span>,
-): <span class="hljs-title class_">Promise</span>&lt;<span class="hljs-title class_">TResult</span>[] | <span class="hljs-title class_">TResult</span>&gt;;
+  <span class="hljs-attr">options</span>?: <span class="hljs-title class_">ExecuteOptions</span> &amp; <span class="hljs-title class_">ParseQueryOptions</span>,
+): <span class="hljs-title class_">Promise</span>&lt;
+  <span class="hljs-title class_">TQuery</span> <span class="hljs-keyword">extends</span> <span class="hljs-title class_">TerminalQuery</span>&lt;infer <span class="hljs-title class_">TResult</span>&gt;
+    ? <span class="hljs-title class_">TResult</span>
+    : <span class="hljs-title class_">TQuery</span> <span class="hljs-keyword">extends</span> <span class="hljs-title class_">Queryable</span>&lt;infer <span class="hljs-title class_">TRecord</span>&gt; | <span class="hljs-title class_">OrderedQueryable</span>&lt;infer <span class="hljs-title class_">TRecord</span>&gt;
+      ? <span class="hljs-title class_">TRecord</span>[]
+      : <span class="hljs-built_in">never</span>
+&gt;;
 </code></pre>
 <p><strong>Example - SQL Generation</strong></p>
 <pre class="hljs"><code><span class="hljs-keyword">import</span> { createSchema, defineSelect } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;@tinqerjs/tinqer&quot;</span>;
@@ -162,32 +179,65 @@
 );
 <span class="hljs-comment">// Returns: Array of user objects</span>
 </code></pre>
+<p><strong>Notes</strong></p>
+<ul>
+<li><code>firstOrDefault</code> / <code>singleOrDefault</code> / <code>lastOrDefault</code> return <code>null</code> when no rows match.</li>
+<li><code>reverse()</code> flips the effective ordering. If no <code>orderBy</code> is present, Tinqer generates <code>ORDER BY 1 DESC</code>. <code>reverse()</code> after <code>take()</code>/<code>skip()</code> is not supported.</li>
+<li><code>contains(value)</code> is a terminal operation on scalar queries (use <code>.select(...)</code> first). <code>contains()</code> is not supported with <code>take()</code>/<code>skip()</code>.</li>
+</ul>
+<p><strong>Example - reverse()</strong></p>
+<pre class="hljs"><code><span class="hljs-keyword">const</span> newestFirst = <span class="hljs-title function_">defineSelect</span>(schema, <span class="hljs-function">(<span class="hljs-params">q</span>) =&gt;</span>
+  q
+    .<span class="hljs-title function_">from</span>(<span class="hljs-string">&quot;users&quot;</span>)
+    .<span class="hljs-title function_">orderBy</span>(<span class="hljs-function">(<span class="hljs-params">u</span>) =&gt;</span> u.<span class="hljs-property">id</span>)
+    .<span class="hljs-title function_">reverse</span>(),
+);
+</code></pre>
+<p><strong>Example - contains()</strong></p>
+<pre class="hljs"><code><span class="hljs-keyword">const</span> hasUserId = <span class="hljs-title function_">defineSelect</span>(schema, <span class="hljs-function">(<span class="hljs-params">q, <span class="hljs-attr">p</span>: { id: <span class="hljs-built_in">number</span> }</span>) =&gt;</span>
+  q
+    .<span class="hljs-title function_">from</span>(<span class="hljs-string">&quot;users&quot;</span>)
+    .<span class="hljs-title function_">select</span>(<span class="hljs-function">(<span class="hljs-params">u</span>) =&gt;</span> u.<span class="hljs-property">id</span>)
+    .<span class="hljs-title function_">contains</span>(p.<span class="hljs-property">id</span>),
+);
+</code></pre>
 <h3 id="12-defineinsert%2C-tosql-%26-executeinsert" tabindex="-1"><a class="anchor" href="#12-defineinsert%2C-tosql-%26-executeinsert" aria-hidden="true">#</a> 1.2 defineInsert, toSql &amp; executeInsert</h3>
 <p>Creates INSERT query plans, generates SQL, or executes queries with optional RETURNING clauses.</p>
 <p><strong>Signatures</strong></p>
 <pre class="hljs"><code><span class="hljs-comment">// Plan definition (from @tinqerjs/tinqer)</span>
 <span class="hljs-keyword">function</span> defineInsert&lt;<span class="hljs-title class_">TSchema</span>, <span class="hljs-title class_">TParams</span>, <span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TReturning</span> = <span class="hljs-built_in">never</span>&gt;(
   <span class="hljs-attr">schema</span>: <span class="hljs-title class_">DatabaseSchema</span>&lt;<span class="hljs-title class_">TSchema</span>&gt;,
-  <span class="hljs-attr">queryBuilder</span>: <span class="hljs-function">(<span class="hljs-params">
+  <span class="hljs-attr">builder</span>: <span class="hljs-function">(<span class="hljs-params">
     <span class="hljs-attr">q</span>: <span class="hljs-title class_">QueryBuilder</span>&lt;<span class="hljs-title class_">TSchema</span>&gt;,
     <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span>,
     <span class="hljs-attr">helpers</span>: <span class="hljs-title class_">QueryHelpers</span>,
   </span>) =&gt;</span> <span class="hljs-title class_">Insertable</span>&lt;<span class="hljs-title class_">TTable</span>&gt; | <span class="hljs-title class_">InsertableWithReturning</span>&lt;<span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TReturning</span>&gt;,
-  <span class="hljs-attr">paramDefaults</span>?: <span class="hljs-title class_">TParams</span>,
-): <span class="hljs-title class_">InsertPlanHandle</span>&lt;<span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TReturning</span>, <span class="hljs-title class_">TParams</span>&gt;;
+  <span class="hljs-attr">options</span>?: <span class="hljs-title class_">ParseQueryOptions</span>,
+):
+  | <span class="hljs-title class_">InsertPlanHandleInitial</span>&lt;<span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TParams</span>&gt;
+  | <span class="hljs-title class_">InsertPlanHandleWithValues</span>&lt;<span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TParams</span>&gt;
+  | <span class="hljs-title class_">InsertPlanHandleWithReturning</span>&lt;<span class="hljs-title class_">TReturning</span>, <span class="hljs-title class_">TParams</span>&gt;;
 
 <span class="hljs-comment">// SQL generation (from adapter packages)</span>
 <span class="hljs-keyword">function</span> toSql&lt;<span class="hljs-title class_">TParams</span>&gt;(
-  <span class="hljs-attr">plan</span>: <span class="hljs-title class_">InsertPlanHandle</span>&lt;<span class="hljs-built_in">unknown</span>, <span class="hljs-built_in">unknown</span>, <span class="hljs-title class_">TParams</span>&gt;,
+  <span class="hljs-attr">plan</span>:
+    | <span class="hljs-title class_">InsertPlanHandleInitial</span>&lt;<span class="hljs-built_in">unknown</span>, <span class="hljs-title class_">TParams</span>&gt;
+    | <span class="hljs-title class_">InsertPlanHandleWithValues</span>&lt;<span class="hljs-built_in">unknown</span>, <span class="hljs-title class_">TParams</span>&gt;
+    | <span class="hljs-title class_">InsertPlanHandleWithReturning</span>&lt;<span class="hljs-built_in">unknown</span>, <span class="hljs-title class_">TParams</span>&gt;,
   <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span>,
-): { <span class="hljs-attr">sql</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span> &amp; <span class="hljs-title class_">Record</span>&lt;<span class="hljs-built_in">string</span>, <span class="hljs-built_in">unknown</span>&gt; };
+): { <span class="hljs-attr">sql</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">params</span>: <span class="hljs-title class_">Record</span>&lt;<span class="hljs-built_in">string</span>, <span class="hljs-built_in">unknown</span>&gt; };
 
 <span class="hljs-comment">// Execution (from adapter packages)</span>
-<span class="hljs-keyword">async</span> <span class="hljs-keyword">function</span> executeInsert&lt;<span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TReturning</span>, <span class="hljs-title class_">TParams</span>&gt;(
+<span class="hljs-keyword">async</span> <span class="hljs-keyword">function</span> executeInsert&lt;<span class="hljs-title class_">TSchema</span>, <span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TReturning</span>, <span class="hljs-title class_">TParams</span>&gt;(
   <span class="hljs-attr">db</span>: <span class="hljs-title class_">PgDatabase</span> | <span class="hljs-title class_">BetterSqlite3Database</span>,
-  <span class="hljs-attr">plan</span>: <span class="hljs-title class_">InsertPlanHandle</span>&lt;<span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TReturning</span>, <span class="hljs-title class_">TParams</span>&gt;,
+  <span class="hljs-attr">schema</span>: <span class="hljs-title class_">DatabaseSchema</span>&lt;<span class="hljs-title class_">TSchema</span>&gt;,
+  <span class="hljs-attr">builder</span>: <span class="hljs-function">(<span class="hljs-params">
+    <span class="hljs-attr">q</span>: <span class="hljs-title class_">QueryBuilder</span>&lt;<span class="hljs-title class_">TSchema</span>&gt;,
+    <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span>,
+    <span class="hljs-attr">helpers</span>?: <span class="hljs-title class_">QueryHelpers</span>,
+  </span>) =&gt;</span> <span class="hljs-title class_">Insertable</span>&lt;<span class="hljs-title class_">TTable</span>&gt; | <span class="hljs-title class_">InsertableWithReturning</span>&lt;<span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TReturning</span>&gt;,
   <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span>,
-  <span class="hljs-attr">options</span>?: <span class="hljs-title class_">ExecuteOptions</span>,
+  <span class="hljs-attr">options</span>?: <span class="hljs-title class_">ExecuteOptions</span> &amp; <span class="hljs-title class_">ParseQueryOptions</span>,
 ): <span class="hljs-title class_">Promise</span>&lt;<span class="hljs-title class_">TReturning</span> <span class="hljs-keyword">extends</span> <span class="hljs-built_in">never</span> ? <span class="hljs-built_in">number</span> : <span class="hljs-title class_">TReturning</span>[]&gt;;
 </code></pre>
 <p><strong>Example - SQL Generation</strong></p>
@@ -262,7 +312,7 @@
 <pre class="hljs"><code><span class="hljs-comment">// Plan definition (from @tinqerjs/tinqer)</span>
 <span class="hljs-keyword">function</span> defineUpdate&lt;<span class="hljs-title class_">TSchema</span>, <span class="hljs-title class_">TParams</span>, <span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TReturning</span> = <span class="hljs-built_in">never</span>&gt;(
   <span class="hljs-attr">schema</span>: <span class="hljs-title class_">DatabaseSchema</span>&lt;<span class="hljs-title class_">TSchema</span>&gt;,
-  <span class="hljs-attr">queryBuilder</span>: <span class="hljs-function">(<span class="hljs-params">
+  <span class="hljs-attr">builder</span>: <span class="hljs-function">(<span class="hljs-params">
     <span class="hljs-attr">q</span>: <span class="hljs-title class_">QueryBuilder</span>&lt;<span class="hljs-title class_">TSchema</span>&gt;,
     <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span>,
     <span class="hljs-attr">helpers</span>: <span class="hljs-title class_">QueryHelpers</span>,
@@ -270,23 +320,49 @@
     | <span class="hljs-title class_">UpdatableWithSet</span>&lt;<span class="hljs-title class_">TTable</span>&gt;
     | <span class="hljs-title class_">UpdatableComplete</span>&lt;<span class="hljs-title class_">TTable</span>&gt;
     | <span class="hljs-title class_">UpdatableWithReturning</span>&lt;<span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TReturning</span>&gt;,
-  <span class="hljs-attr">paramDefaults</span>?: <span class="hljs-title class_">TParams</span>,
-): <span class="hljs-title class_">UpdatePlanHandle</span>&lt;<span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TReturning</span>, <span class="hljs-title class_">TParams</span>&gt;;
+  <span class="hljs-attr">options</span>?: <span class="hljs-title class_">ParseQueryOptions</span>,
+):
+  | <span class="hljs-title class_">UpdatePlanHandleInitial</span>&lt;<span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TParams</span>&gt;
+  | <span class="hljs-title class_">UpdatePlanHandleWithSet</span>&lt;<span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TParams</span>&gt;
+  | <span class="hljs-title class_">UpdatePlanHandleComplete</span>&lt;<span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TParams</span>&gt;
+  | <span class="hljs-title class_">UpdatePlanHandleWithReturning</span>&lt;<span class="hljs-title class_">TReturning</span>, <span class="hljs-title class_">TParams</span>&gt;;
 
 <span class="hljs-comment">// SQL generation (from adapter packages)</span>
 <span class="hljs-keyword">function</span> toSql&lt;<span class="hljs-title class_">TParams</span>&gt;(
-  <span class="hljs-attr">plan</span>: <span class="hljs-title class_">UpdatePlanHandle</span>&lt;<span class="hljs-built_in">unknown</span>, <span class="hljs-built_in">unknown</span>, <span class="hljs-title class_">TParams</span>&gt;,
+  <span class="hljs-attr">plan</span>:
+    | <span class="hljs-title class_">UpdatePlanHandleWithSet</span>&lt;<span class="hljs-built_in">unknown</span>, <span class="hljs-title class_">TParams</span>&gt;
+    | <span class="hljs-title class_">UpdatePlanHandleComplete</span>&lt;<span class="hljs-built_in">unknown</span>, <span class="hljs-title class_">TParams</span>&gt;
+    | <span class="hljs-title class_">UpdatePlanHandleWithReturning</span>&lt;<span class="hljs-built_in">unknown</span>, <span class="hljs-title class_">TParams</span>&gt;,
   <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span>,
-): { <span class="hljs-attr">sql</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span> &amp; <span class="hljs-title class_">Record</span>&lt;<span class="hljs-built_in">string</span>, <span class="hljs-built_in">unknown</span>&gt; };
+): { <span class="hljs-attr">sql</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">params</span>: <span class="hljs-title class_">Record</span>&lt;<span class="hljs-built_in">string</span>, <span class="hljs-built_in">unknown</span>&gt; };
 
 <span class="hljs-comment">// Execution (from adapter packages)</span>
-<span class="hljs-keyword">async</span> <span class="hljs-keyword">function</span> executeUpdate&lt;<span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TReturning</span>, <span class="hljs-title class_">TParams</span>&gt;(
+<span class="hljs-keyword">async</span> <span class="hljs-keyword">function</span> executeUpdate&lt;<span class="hljs-title class_">TSchema</span>, <span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TReturning</span>, <span class="hljs-title class_">TParams</span>&gt;(
   <span class="hljs-attr">db</span>: <span class="hljs-title class_">PgDatabase</span> | <span class="hljs-title class_">BetterSqlite3Database</span>,
-  <span class="hljs-attr">plan</span>: <span class="hljs-title class_">UpdatePlanHandle</span>&lt;<span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TReturning</span>, <span class="hljs-title class_">TParams</span>&gt;,
+  <span class="hljs-attr">schema</span>: <span class="hljs-title class_">DatabaseSchema</span>&lt;<span class="hljs-title class_">TSchema</span>&gt;,
+  <span class="hljs-attr">builder</span>: <span class="hljs-function">(<span class="hljs-params">
+    <span class="hljs-attr">q</span>: <span class="hljs-title class_">QueryBuilder</span>&lt;<span class="hljs-title class_">TSchema</span>&gt;,
+    <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span>,
+    <span class="hljs-attr">helpers</span>?: <span class="hljs-title class_">QueryHelpers</span>,
+  </span>) =&gt;</span>
+    | <span class="hljs-title class_">UpdatableWithSet</span>&lt;<span class="hljs-title class_">TTable</span>&gt;
+    | <span class="hljs-title class_">UpdatableComplete</span>&lt;<span class="hljs-title class_">TTable</span>&gt;
+    | <span class="hljs-title class_">UpdatableWithReturning</span>&lt;<span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TReturning</span>&gt;,
   <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span>,
-  <span class="hljs-attr">options</span>?: <span class="hljs-title class_">ExecuteOptions</span>,
+  <span class="hljs-attr">options</span>?: <span class="hljs-title class_">ExecuteOptions</span> &amp; <span class="hljs-title class_">ParseQueryOptions</span>,
 ): <span class="hljs-title class_">Promise</span>&lt;<span class="hljs-title class_">TReturning</span> <span class="hljs-keyword">extends</span> <span class="hljs-built_in">never</span> ? <span class="hljs-built_in">number</span> : <span class="hljs-title class_">TReturning</span>[]&gt;;
 </code></pre>
+<p><strong>SET clause</strong></p>
+<p><code>.set(...)</code> supports both direct assignments and column self-references:</p>
+<pre class="hljs"><code>q.<span class="hljs-title function_">update</span>(<span class="hljs-string">&quot;users&quot;</span>).<span class="hljs-title function_">set</span>({ <span class="hljs-attr">status</span>: <span class="hljs-string">&quot;inactive&quot;</span> });
+
+q.<span class="hljs-title function_">update</span>(<span class="hljs-string">&quot;users&quot;</span>).<span class="hljs-title function_">set</span>(<span class="hljs-function">(<span class="hljs-params">u</span>) =&gt;</span> ({ <span class="hljs-attr">viewCount</span>: u.<span class="hljs-property">viewCount</span> + <span class="hljs-number">1</span> }));
+</code></pre>
+<p>Notes:</p>
+<ul>
+<li>The lambda form must return an object literal.</li>
+<li><code>.set(...)</code> can only be called once per UPDATE.</li>
+</ul>
 <p><strong>Example - SQL Generation</strong></p>
 <pre class="hljs"><code><span class="hljs-keyword">import</span> { createSchema, defineUpdate } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;@tinqerjs/tinqer&quot;</span>;
 <span class="hljs-keyword">import</span> { toSql } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;@tinqerjs/pg-promise-adapter&quot;</span>;
@@ -350,26 +426,31 @@
 <pre class="hljs"><code><span class="hljs-comment">// Plan definition (from @tinqerjs/tinqer)</span>
 <span class="hljs-keyword">function</span> defineDelete&lt;<span class="hljs-title class_">TSchema</span>, <span class="hljs-title class_">TParams</span>&gt;(
   <span class="hljs-attr">schema</span>: <span class="hljs-title class_">DatabaseSchema</span>&lt;<span class="hljs-title class_">TSchema</span>&gt;,
-  <span class="hljs-attr">queryBuilder</span>: <span class="hljs-function">(<span class="hljs-params">
+  <span class="hljs-attr">builder</span>: <span class="hljs-function">(<span class="hljs-params">
     <span class="hljs-attr">q</span>: <span class="hljs-title class_">QueryBuilder</span>&lt;<span class="hljs-title class_">TSchema</span>&gt;,
     <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span>,
     <span class="hljs-attr">helpers</span>: <span class="hljs-title class_">QueryHelpers</span>,
   </span>) =&gt;</span> <span class="hljs-title class_">Deletable</span>&lt;<span class="hljs-built_in">unknown</span>&gt; | <span class="hljs-title class_">DeletableComplete</span>&lt;<span class="hljs-built_in">unknown</span>&gt;,
-  <span class="hljs-attr">paramDefaults</span>?: <span class="hljs-title class_">TParams</span>,
-): <span class="hljs-title class_">DeletePlanHandle</span>&lt;<span class="hljs-title class_">TParams</span>&gt;;
+  <span class="hljs-attr">options</span>?: <span class="hljs-title class_">ParseQueryOptions</span>,
+): <span class="hljs-title class_">DeletePlanHandleInitial</span>&lt;<span class="hljs-built_in">unknown</span>, <span class="hljs-title class_">TParams</span>&gt; | <span class="hljs-title class_">DeletePlanHandleComplete</span>&lt;<span class="hljs-built_in">unknown</span>, <span class="hljs-title class_">TParams</span>&gt;;
 
 <span class="hljs-comment">// SQL generation (from adapter packages)</span>
 <span class="hljs-keyword">function</span> toSql&lt;<span class="hljs-title class_">TParams</span>&gt;(
-  <span class="hljs-attr">plan</span>: <span class="hljs-title class_">DeletePlanHandle</span>&lt;<span class="hljs-title class_">TParams</span>&gt;,
+  <span class="hljs-attr">plan</span>: <span class="hljs-title class_">DeletePlanHandleInitial</span>&lt;<span class="hljs-built_in">unknown</span>, <span class="hljs-title class_">TParams</span>&gt; | <span class="hljs-title class_">DeletePlanHandleComplete</span>&lt;<span class="hljs-built_in">unknown</span>, <span class="hljs-title class_">TParams</span>&gt;,
   <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span>,
-): { <span class="hljs-attr">sql</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span> &amp; <span class="hljs-title class_">Record</span>&lt;<span class="hljs-built_in">string</span>, <span class="hljs-built_in">unknown</span>&gt; };
+): { <span class="hljs-attr">sql</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">params</span>: <span class="hljs-title class_">Record</span>&lt;<span class="hljs-built_in">string</span>, <span class="hljs-built_in">unknown</span>&gt; };
 
 <span class="hljs-comment">// Execution (from adapter packages)</span>
-<span class="hljs-keyword">async</span> <span class="hljs-keyword">function</span> executeDelete&lt;<span class="hljs-title class_">TParams</span>&gt;(
+<span class="hljs-keyword">async</span> <span class="hljs-keyword">function</span> executeDelete&lt;<span class="hljs-title class_">TSchema</span>, <span class="hljs-title class_">TParams</span>&gt;(
   <span class="hljs-attr">db</span>: <span class="hljs-title class_">PgDatabase</span> | <span class="hljs-title class_">BetterSqlite3Database</span>,
-  <span class="hljs-attr">plan</span>: <span class="hljs-title class_">DeletePlanHandle</span>&lt;<span class="hljs-title class_">TParams</span>&gt;,
+  <span class="hljs-attr">schema</span>: <span class="hljs-title class_">DatabaseSchema</span>&lt;<span class="hljs-title class_">TSchema</span>&gt;,
+  <span class="hljs-attr">builder</span>: <span class="hljs-function">(<span class="hljs-params">
+    <span class="hljs-attr">q</span>: <span class="hljs-title class_">QueryBuilder</span>&lt;<span class="hljs-title class_">TSchema</span>&gt;,
+    <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span>,
+    <span class="hljs-attr">helpers</span>?: <span class="hljs-title class_">QueryHelpers</span>,
+  </span>) =&gt;</span> <span class="hljs-title class_">Deletable</span>&lt;<span class="hljs-built_in">unknown</span>&gt; | <span class="hljs-title class_">DeletableComplete</span>&lt;<span class="hljs-built_in">unknown</span>&gt;,
   <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span>,
-  <span class="hljs-attr">options</span>?: <span class="hljs-title class_">ExecuteOptions</span>,
+  <span class="hljs-attr">options</span>?: <span class="hljs-title class_">ExecuteOptions</span> &amp; <span class="hljs-title class_">ParseQueryOptions</span>,
 ): <span class="hljs-title class_">Promise</span>&lt;<span class="hljs-built_in">number</span>&gt;;
 </code></pre>
 <p><strong>Example - SQL Generation</strong></p>
@@ -496,18 +577,24 @@
 <p><strong>Available Helper Functions</strong></p>
 <p>Helpers expose the following functions that adapt per database dialect:</p>
 <ul>
-<li><code>ilike(field, pattern)</code> - Case-insensitive LIKE comparison</li>
-<li><code>contains(field, substring)</code> - Check if field contains substring (case-sensitive)</li>
-<li><code>icontains(field, substring)</code> - Check if field contains substring (case-insensitive)</li>
-<li><code>startsWith(field, prefix)</code> - Check if field starts with prefix (case-sensitive)</li>
-<li><code>istartsWith(field, prefix)</code> - Check if field starts with prefix (case-insensitive)</li>
-<li><code>endsWith(field, suffix)</code> - Check if field ends with suffix (case-sensitive)</li>
-<li><code>iendsWith(field, suffix)</code> - Check if field ends with suffix (case-insensitive)</li>
+<li><code>helpers.functions.iequals(a, b)</code> - Case-insensitive equality</li>
+<li><code>helpers.functions.istartsWith(str, prefix)</code> - Case-insensitive startsWith</li>
+<li><code>helpers.functions.iendsWith(str, suffix)</code> - Case-insensitive endsWith</li>
+<li><code>helpers.functions.icontains(str, substring)</code> - Case-insensitive contains</li>
 </ul>
-<p><strong>Creating Custom Helpers</strong></p>
-<p>You can create helpers with custom functions:</p>
-<pre class="hljs"><code><span class="hljs-keyword">const</span> helpers = createQueryHelpers&lt;<span class="hljs-title class_">Schema</span>&gt;();
-<span class="hljs-comment">// Use helpers in your queries through the third parameter</span>
+<p><strong>Window Functions</strong></p>
+<p>Helpers also include a window-function builder:</p>
+<ul>
+<li><code>helpers.window(row).partitionBy(...).orderBy(...).rowNumber()</code></li>
+<li><code>helpers.window(row).partitionBy(...).orderByDescending(...).rank()</code></li>
+<li><code>helpers.window(row).denseRank()</code></li>
+</ul>
+<p>These are parsed into SQL window functions (they should never run at runtime).</p>
+<p><strong>createQueryHelpers</strong></p>
+<p>You usually do not need to call this directly (adapters provide helpers automatically), but it is exported for custom integrations:</p>
+<pre class="hljs"><code><span class="hljs-keyword">import</span> { createQueryHelpers } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;@tinqerjs/tinqer&quot;</span>;
+
+<span class="hljs-keyword">const</span> helpers = <span class="hljs-title function_">createQueryHelpers</span>();
 </code></pre>
 
       </article>

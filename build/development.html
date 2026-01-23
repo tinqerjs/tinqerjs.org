@@ -105,11 +105,9 @@
 <h2 id="1-getting-started" tabindex="-1"><a class="anchor" href="#1-getting-started" aria-hidden="true">#</a> 1. Getting Started</h2>
 <h3 id="11-prerequisites" tabindex="-1"><a class="anchor" href="#11-prerequisites" aria-hidden="true">#</a> 1.1 Prerequisites</h3>
 <ul>
-<li>Node.js 18+ (for ESM support)</li>
-<li>npm 8+</li>
-<li>TypeScript 5.3+</li>
-<li>PostgreSQL 12+ (for PostgreSQL adapter development)</li>
-<li>SQLite 3.35+ (for SQLite adapter development)</li>
+<li>Node.js 22+ (required; see <code>package.json</code> <code>engines.node</code>)</li>
+<li>npm (workspaces; typically bundled with Node)</li>
+<li>Docker + Docker Compose (optional, for PostgreSQL integration tests via <code>devenv/docker-compose.yml</code>)</li>
 </ul>
 <h3 id="12-installation" tabindex="-1"><a class="anchor" href="#12-installation" aria-hidden="true">#</a> 1.2 Installation</h3>
 <pre class="hljs"><code><span class="hljs-comment"># Clone the repository</span>
@@ -127,28 +125,39 @@ npm install
 ├── packages/
 │   ├── tinqer/                          # Core library
 │   │   ├── src/
-│   │   │   ├── parser/                  # Lambda expression parser (OXC)
-│   │   │   ├── converter/               # AST to expression tree converter
-│   │   │   ├── queryable/               # Queryable API
-│   │   │   ├── visitors/                # SQL generation visitors
-│   │   │   └── types/                   # TypeScript type definitions
+│   │   │   ├── expressions/             # Expression tree types
+│   │   │   ├── linq/                    # Public query DSL (Queryable/TerminalQuery)
+│   │   │   ├── parser/                  # Lambda parsing (OXC) + AST visitor
+│   │   │   ├── plans/                   # Plan handles (defineSelect/defineUpdate/etc.)
+│   │   │   ├── policies/                # Row filters / policy helpers
+│   │   │   ├── query-tree/              # Operation node types
+│   │   │   └── visitors/                # Operation visitors (AST -&gt; query tree)
 │   │   └── tests/                       # Core library tests
 │   │
-│   ├── pg-promise-adapter/           # PostgreSQL adapter
+│   ├── pg-promise-adapter/              # PostgreSQL adapter (pg-promise)
 │   │   ├── src/
-│   │   │   ├── adapter.ts               # PostgreSQL SQL adapter
-│   │   │   ├── execute.ts               # Execution functions
-│   │   │   └── visitors/                # PostgreSQL-specific visitors
-│   │   └── tests/                       # Integration tests
+│   │   │   ├── generators/              # SQL clause generators (from/where/select/etc.)
+│   │   │   ├── expression-generator.ts  # Expression -&gt; SQL generator
+│   │   │   ├── sql-generator.ts         # Operation tree -&gt; SQL orchestrator
+│   │   │   └── index.ts                 # Public adapter API (execute*, toSql)
+│   │   └── tests/                       # Unit tests (SQL generation + runtime behavior)
 │   │
-│   ├── better-sqlite3-adapter/       # SQLite adapter
+│   ├── better-sqlite3-adapter/          # SQLite adapter (better-sqlite3)
 │   │   ├── src/
-│   │   │   ├── adapter.ts               # SQLite SQL adapter
-│   │   │   ├── execute.ts               # Execution functions
-│   │   │   └── visitors/                # SQLite-specific visitors
-│   │   └── tests/                       # Integration tests
+│   │   │   ├── generators/              # SQL clause generators (from/where/select/etc.)
+│   │   │   ├── expression-generator.ts  # Expression -&gt; SQL generator
+│   │   │   ├── sql-generator.ts         # Operation tree -&gt; SQL orchestrator
+│   │   │   └── index.ts                 # Public adapter API (execute*, toSql)
+│   │   └── tests/                       # Unit tests (SQL generation + runtime behavior)
 │   │
-│   └── tinqer-sql-*/                    # Integration test packages
+│   ├── pg-promise-adapter-integration/  # PostgreSQL integration tests (requires a running DB)
+│   │   └── tests/
+│   └── better-sqlite3-adapter-integration/ # SQLite integration tests
+│       └── tests/
+│
+├── devenv/                              # Local dev environment helpers
+│   ├── docker-compose.yml               # PostgreSQL for integration tests
+│   └── run.sh                           # Convenience wrapper around docker compose
 │
 ├── scripts/                             # Build and utility scripts
 │   ├── build.sh                         # Main build script
@@ -191,27 +200,31 @@ npm run build
 <pre class="hljs"><code><span class="hljs-comment"># Run all tests</span>
 npm <span class="hljs-built_in">test</span>
 
-<span class="hljs-comment"># Run tests in watch mode</span>
-npm run <span class="hljs-built_in">test</span>:watch
+<span class="hljs-comment"># Save full test output (gitignored)</span>
+npm <span class="hljs-built_in">test</span> | <span class="hljs-built_in">tee</span> .tests/run-&lt;timestamp&gt;.txt
 
-<span class="hljs-comment"># Run specific tests by pattern</span>
-npm run <span class="hljs-built_in">test</span>:grep -- <span class="hljs-string">&quot;WHERE operations&quot;</span>
-npm run <span class="hljs-built_in">test</span>:grep -- <span class="hljs-string">&quot;INSERT&quot;</span>
-npm run <span class="hljs-built_in">test</span>:grep -- <span class="hljs-string">&quot;JOIN&quot;</span>
+<span class="hljs-comment"># Run tests for a specific workspace</span>
+npm <span class="hljs-built_in">test</span> --workspace @tinqerjs/tinqer
+npm <span class="hljs-built_in">test</span> --workspace @tinqerjs/pg-promise-adapter
+npm <span class="hljs-built_in">test</span> --workspace @tinqerjs/better-sqlite3-adapter
+npm <span class="hljs-built_in">test</span> --workspace @tinqerjs/better-sqlite3-adapter-integration
 
-<span class="hljs-comment"># Run tests for specific package</span>
-<span class="hljs-built_in">cd</span> packages/tinqer
-npm <span class="hljs-built_in">test</span>
+<span class="hljs-comment"># Grep within a specific workspace (Mocha)</span>
+npm <span class="hljs-built_in">test</span> --workspace @tinqerjs/tinqer -- --grep <span class="hljs-string">&quot;WHERE operations&quot;</span>
+
+<span class="hljs-comment"># PostgreSQL integration tests (requires a running Postgres)</span>
+./devenv/run.sh up
+TINQER_PG_INTEGRATION=1 npm <span class="hljs-built_in">test</span> --workspace @tinqerjs/pg-promise-adapter-integration
 </code></pre>
 <h3 id="32-test-organization" tabindex="-1"><a class="anchor" href="#32-test-organization" aria-hidden="true">#</a> 3.2 Test Organization</h3>
 <p><strong>Core Library Tests</strong> (<code>packages/tinqer/tests/</code>):</p>
 <ul>
 <li>Parser tests: Lambda expression parsing</li>
-<li>Converter tests: AST to expression tree conversion</li>
+<li>AST visitor tests: AST to expression tree conversion</li>
 <li>Queryable tests: Query builder API</li>
 <li>Type tests: TypeScript type inference</li>
 </ul>
-<p><strong>Integration Tests</strong> (<code>packages/tinqer-sql-*/tests/</code>):</p>
+<p><strong>Integration Tests</strong>:</p>
 <ul>
 <li>PostgreSQL integration: <code>pg-promise-adapter-integration/tests/</code></li>
 <li>SQLite integration: <code>better-sqlite3-adapter-integration/tests/</code></li>
@@ -275,17 +288,13 @@ npm <span class="hljs-built_in">test</span>
 });
 </code></pre>
 <p><strong>Test Database Setup:</strong></p>
-<p>PostgreSQL tests use shared connection (<code>packages/pg-promise-adapter-integration/tests/shared-db.ts</code>):</p>
+<p>PostgreSQL integration tests use a shared connection (<code>packages/pg-promise-adapter-integration/tests/shared-db.ts</code>):</p>
 <pre class="hljs"><code><span class="hljs-keyword">import</span> pgPromise <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;pg-promise&quot;</span>;
 
 <span class="hljs-keyword">const</span> pgp = <span class="hljs-title function_">pgPromise</span>();
-<span class="hljs-keyword">export</span> <span class="hljs-keyword">const</span> db = <span class="hljs-title function_">pgp</span>({
-  <span class="hljs-attr">host</span>: <span class="hljs-string">&quot;localhost&quot;</span>,
-  <span class="hljs-attr">port</span>: <span class="hljs-number">5432</span>,
-  <span class="hljs-attr">database</span>: <span class="hljs-string">&quot;tinqer_test&quot;</span>,
-  <span class="hljs-attr">user</span>: <span class="hljs-string">&quot;tinqer_test&quot;</span>,
-  <span class="hljs-attr">password</span>: <span class="hljs-string">&quot;tinqer_test&quot;</span>,
-});
+<span class="hljs-keyword">const</span> connectionString =
+  process.<span class="hljs-property">env</span>.<span class="hljs-property">DATABASE_URL</span> || <span class="hljs-string">&quot;postgres://postgres:postgres@localhost:5432/tinqer_test&quot;</span>;
+<span class="hljs-keyword">export</span> <span class="hljs-keyword">const</span> db = <span class="hljs-title function_">pgp</span>(connectionString);
 </code></pre>
 <p>SQLite tests use isolated in-memory databases:</p>
 <pre class="hljs"><code><span class="hljs-keyword">import</span> <span class="hljs-title class_">Database</span> <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;better-sqlite3&quot;</span>;
@@ -349,10 +358,10 @@ npm run format
 <li>
 <p><strong>ESM imports</strong>: Always include <code>.js</code> extension in imports</p>
 <pre class="hljs"><code><span class="hljs-comment">// Correct</span>
-<span class="hljs-keyword">import</span> { <span class="hljs-title class_">Queryable</span> } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;./queryable/queryable.js&quot;</span>;
+<span class="hljs-keyword">import</span> { <span class="hljs-title class_">Queryable</span> } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;./linq/queryable.js&quot;</span>;
 
 <span class="hljs-comment">// Incorrect</span>
-<span class="hljs-keyword">import</span> { <span class="hljs-title class_">Queryable</span> } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;./queryable/queryable&quot;</span>;
+<span class="hljs-keyword">import</span> { <span class="hljs-title class_">Queryable</span> } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;./linq/queryable&quot;</span>;
 </code></pre>
 </li>
 <li>
@@ -545,18 +554,18 @@ pgp.<span class="hljs-title function_">end</span>(); <span class="hljs-comment">
 <li><strong>Make changes</strong> to source files</li>
 <li><strong>Run linter</strong>: <code>./scripts/lint-all.sh --fix</code></li>
 <li><strong>Build</strong>: <code>./scripts/build.sh --no-format</code> (skip formatting for speed)</li>
-<li><strong>Run specific tests</strong>: <code>npm run test:grep -- &quot;your feature&quot;</code></li>
+<li><strong>Run specific tests</strong>: <code>npm test --workspace @tinqerjs/tinqer -- --grep &quot;your feature&quot;</code></li>
 <li><strong>Iterate</strong> until tests pass</li>
-<li><strong>Run full test suite</strong>: <code>npm test</code></li>
-<li><strong>Format code</strong>: <code>./scripts/format-all.sh</code></li>
-<li><strong>Final build</strong>: <code>./scripts/build.sh</code></li>
+<li><strong>Run full test suite</strong>: <code>npm test | tee .tests/run-&lt;timestamp&gt;.txt</code></li>
+<li><strong>Format code</strong>: <code>./scripts/format-all.sh</code> (or <code>./scripts/build.sh</code> without <code>--no-format</code>)</li>
+<li><strong>Final build</strong>: <code>./scripts/build.sh</code> (lint-first: run <code>./scripts/lint-all.sh</code> before building)</li>
 <li><strong>Commit changes</strong></li>
 </ol>
 <p><strong>Debugging Tips:</strong></p>
 <ul>
-<li>Use <code>npm run test:grep -- &quot;pattern&quot;</code> to focus on specific tests</li>
+<li>Use <code>npm test --workspace &lt;workspace&gt; -- --grep &quot;pattern&quot;</code> to focus on specific tests</li>
 <li>Check <code>.tests/</code> directory for saved test output (gitignored)</li>
-<li>Use TypeScript’s <code>tsc --noEmit</code> to check types without building</li>
+<li>Use <code>npm run typecheck</code> to check types without building</li>
 <li>Enable verbose logging in tests with <code>DEBUG=* npm test</code></li>
 </ul>
 <hr>
