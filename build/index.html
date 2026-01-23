@@ -434,6 +434,18 @@ npm install @tinqerjs/better-sqlite3-adapter
   { <span class="hljs-attr">cutoffDate</span>: <span class="hljs-keyword">new</span> <span class="hljs-title class_">Date</span>(<span class="hljs-string">&quot;2023-01-01&quot;</span>) },
 );
 
+<span class="hljs-comment">// UPDATE with column self-reference (increment counters, etc.)</span>
+<span class="hljs-keyword">await</span> <span class="hljs-title function_">executeUpdate</span>(
+  db,
+  schema,
+  <span class="hljs-function">(<span class="hljs-params">q, <span class="hljs-attr">params</span>: { userId: <span class="hljs-built_in">number</span> }</span>) =&gt;</span>
+    q
+      .<span class="hljs-title function_">update</span>(<span class="hljs-string">&quot;users&quot;</span>)
+      .<span class="hljs-title function_">set</span>(<span class="hljs-function">(<span class="hljs-params">u</span>) =&gt;</span> ({ <span class="hljs-attr">view_count</span>: u.<span class="hljs-property">view_count</span> + <span class="hljs-number">1</span> }))
+      .<span class="hljs-title function_">where</span>(<span class="hljs-function">(<span class="hljs-params">u</span>) =&gt;</span> u.<span class="hljs-property">id</span> === params.<span class="hljs-property">userId</span>),
+  { <span class="hljs-attr">userId</span>: <span class="hljs-number">1</span> },
+);
+
 <span class="hljs-comment">// Tip: undefined values in .set() or .values() are ignored; explicit null sets NULL.</span>
 
 <span class="hljs-comment">// DELETE</span>
@@ -473,10 +485,10 @@ npm install @tinqerjs/better-sqlite3-adapter
 <span class="hljs-keyword">const</span> schema = createSchema&lt;<span class="hljs-title class_">Schema</span>&gt;();
 
 <span class="hljs-keyword">const</span> <span class="hljs-title function_">query</span> = (<span class="hljs-params">q, params, helpers</span>) =&gt;
-  q.<span class="hljs-title function_">from</span>(<span class="hljs-string">&quot;users&quot;</span>).<span class="hljs-title function_">where</span>(<span class="hljs-function">(<span class="hljs-params">u</span>) =&gt;</span> helpers.<span class="hljs-title function_">contains</span>(u.<span class="hljs-property">name</span>, params.<span class="hljs-property">searchTerm</span>)); <span class="hljs-comment">// Case-insensitive substring match</span>
+  q.<span class="hljs-title function_">from</span>(<span class="hljs-string">&quot;users&quot;</span>).<span class="hljs-title function_">where</span>(<span class="hljs-function">(<span class="hljs-params">u</span>) =&gt;</span> helpers.<span class="hljs-property">functions</span>.<span class="hljs-title function_">icontains</span>(u.<span class="hljs-property">name</span>, params.<span class="hljs-property">searchTerm</span>)); <span class="hljs-comment">// Case-insensitive substring match</span>
 
-<span class="hljs-comment">// PostgreSQL: WHERE u.name ILIKE $(searchTerm) (param: &quot;%alice%&quot;)</span>
-<span class="hljs-comment">// SQLite: WHERE LOWER(u.name) LIKE LOWER(?) (param: &quot;%alice%&quot;)</span>
+<span class="hljs-comment">// PostgreSQL: WHERE LOWER(&quot;name&quot;) LIKE &#x27;%&#x27; || LOWER($(searchTerm)) || &#x27;%&#x27;</span>
+<span class="hljs-comment">// SQLite: WHERE LOWER(&quot;name&quot;) LIKE &#x27;%&#x27; || LOWER(@searchTerm) || &#x27;%&#x27;</span>
 </code></pre>
 <h2 id="key-concepts" tabindex="-1"><a class="anchor" href="#key-concepts" aria-hidden="true">#</a> Key Concepts</h2>
 <h3 id="query-lifecycle" tabindex="-1"><a class="anchor" href="#query-lifecycle" aria-hidden="true">#</a> Query Lifecycle</h3>
@@ -495,17 +507,17 @@ npm install @tinqerjs/better-sqlite3-adapter
 <li><strong>String</strong>: <code>.includes()</code>, <code>.startsWith()</code>, <code>.endsWith()</code>, <code>.toLowerCase()</code>, <code>.toUpperCase()</code></li>
 <li><strong>Null handling</strong>: <code>??</code> (null coalescing), <code>?.</code> (optional chaining)</li>
 <li><strong>Arrays</strong>: <code>.includes()</code> for IN queries</li>
-<li><strong>Helper functions</strong>: <code>ilike()</code>, <code>contains()</code>, <code>startsWith()</code>, <code>endsWith()</code> (case-insensitive)</li>
-<li><strong>Window functions</strong>: <code>h.window(row).rowNumber()</code>, <code>h.window(row).rank()</code>, <code>h.window(row).denseRank()</code> with <code>partitionBy()</code>, <code>orderBy()</code>, <code>orderByDescending()</code>, <code>thenBy()</code>, <code>thenByDescending()</code></li>
+<li><strong>Helper functions</strong>: <code>helpers.functions.iequals()</code>, <code>helpers.functions.istartsWith()</code>, <code>helpers.functions.iendsWith()</code>, <code>helpers.functions.icontains()</code> (portable case-insensitive)</li>
+<li><strong>Window functions</strong>: <code>helpers.window(row).partitionBy(...).orderBy(...).rowNumber()</code>, <code>helpers.window(row).rank()</code>, <code>helpers.window(row).denseRank()</code> with <code>orderByDescending()</code>, <code>thenBy()</code>, <code>thenByDescending()</code></li>
 </ul>
 <h2 id="database-support" tabindex="-1"><a class="anchor" href="#database-support" aria-hidden="true">#</a> Database Support</h2>
 <h3 id="postgresql" tabindex="-1"><a class="anchor" href="#postgresql" aria-hidden="true">#</a> PostgreSQL</h3>
 <ul>
 <li>Native boolean type (<code>true</code>/<code>false</code>)</li>
-<li>Case-insensitive matching with <code>ILIKE</code></li>
+<li>Case-insensitive helpers use <code>LOWER()</code> comparisons for portable SQL</li>
 <li>Full JSONB support</li>
 <li>Window functions: <code>ROW_NUMBER()</code>, <code>RANK()</code>, <code>DENSE_RANK()</code></li>
-<li>Parameter placeholders: <code>$1</code>, <code>$2</code>, etc.</li>
+<li>Parameter placeholders: <code>$(name)</code> / <code>$(__p1)</code> (pg-promise format)</li>
 </ul>
 <h3 id="sqlite" tabindex="-1"><a class="anchor" href="#sqlite" aria-hidden="true">#</a> SQLite</h3>
 <ul>
@@ -513,7 +525,7 @@ npm install @tinqerjs/better-sqlite3-adapter
 <li>Case-insensitive via <code>LOWER()</code> function</li>
 <li>JSON functions support</li>
 <li>Window functions: <code>ROW_NUMBER()</code>, <code>RANK()</code>, <code>DENSE_RANK()</code> (requires SQLite 3.25+)</li>
-<li>Parameter placeholders: <code>?</code>, <code>?</code>, etc.</li>
+<li>Parameter placeholders: <code>@name</code> / <code>@__p1</code></li>
 </ul>
 <p>See <a href="docs/adapters.md">Database Adapters</a> for detailed comparison.</p>
 <h2 id="differences-from-net-linq-to-sql" tabindex="-1"><a class="anchor" href="#differences-from-net-linq-to-sql" aria-hidden="true">#</a> Differences from .NET LINQ to SQL</h2>

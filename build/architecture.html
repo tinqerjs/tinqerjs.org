@@ -595,12 +595,16 @@ normalizedOperation = <span class="hljs-title function_">normalizeXYZ</span>(nor
 </code></pre>
 <h3 id="parser-api-(runtime)" tabindex="-1"><a class="anchor" href="#parser-api-(runtime)" aria-hidden="true">#</a> Parser API (Runtime)</h3>
 <pre class="hljs"><code><span class="hljs-comment">// Main parsing function</span>
-<span class="hljs-keyword">function</span> parseQuery&lt;<span class="hljs-title class_">TParams</span>, <span class="hljs-title class_">TResult</span>&gt;(
-  <span class="hljs-attr">queryBuilder</span>: <span class="hljs-function">(<span class="hljs-params"><span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span></span>) =&gt;</span> <span class="hljs-title class_">Queryable</span>&lt;<span class="hljs-title class_">TResult</span>&gt; | <span class="hljs-title class_">TerminalQuery</span>&lt;<span class="hljs-title class_">TResult</span>&gt;,
-): <span class="hljs-title class_">QueryOperation</span>;
+<span class="hljs-keyword">function</span> parseQuery&lt;<span class="hljs-title class_">TContext</span>, <span class="hljs-title class_">TParams</span>, <span class="hljs-title class_">TQuery</span>&gt;(
+  <span class="hljs-attr">builder</span>:
+    | (<span class="hljs-function">(<span class="hljs-params"><span class="hljs-attr">ctx</span>: <span class="hljs-title class_">TContext</span></span>) =&gt;</span> <span class="hljs-title class_">TQuery</span>)
+    | (<span class="hljs-function">(<span class="hljs-params"><span class="hljs-attr">ctx</span>: <span class="hljs-title class_">TContext</span>, <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span></span>) =&gt;</span> <span class="hljs-title class_">TQuery</span>)
+    | (<span class="hljs-function">(<span class="hljs-params"><span class="hljs-attr">ctx</span>: <span class="hljs-title class_">TContext</span>, <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span>, <span class="hljs-attr">helpers</span>: <span class="hljs-title class_">Helpers</span></span>) =&gt;</span> <span class="hljs-title class_">TQuery</span>),
+  <span class="hljs-attr">options</span>?: <span class="hljs-title class_">ParseQueryOptions</span>,
+): <span class="hljs-title class_">ParseResult</span> | <span class="hljs-literal">null</span>;
 
 <span class="hljs-comment">// Parses individual lambdas</span>
-<span class="hljs-keyword">function</span> <span class="hljs-title function_">parseLambda</span>(<span class="hljs-params"><span class="hljs-attr">fn</span>: <span class="hljs-title class_">Function</span></span>): <span class="hljs-title class_">Expression</span>;
+<span class="hljs-keyword">function</span> <span class="hljs-title function_">parseLambdaExpression</span>(<span class="hljs-params"><span class="hljs-attr">fn</span>: <span class="hljs-title class_">Function</span>, <span class="hljs-attr">methodName</span>: <span class="hljs-built_in">string</span></span>): <span class="hljs-title class_">LambdaExpression</span>;
 
 <span class="hljs-comment">// Converts AST to expressions</span>
 <span class="hljs-keyword">function</span> <span class="hljs-title function_">convertAstToExpression</span>(<span class="hljs-params"><span class="hljs-attr">ast</span>: <span class="hljs-built_in">unknown</span>, <span class="hljs-attr">context</span>: <span class="hljs-title class_">Context</span></span>): <span class="hljs-title class_">Expression</span>;
@@ -617,13 +621,13 @@ normalizedOperation = <span class="hljs-title function_">normalizeXYZ</span>(nor
     <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span>,
     <span class="hljs-attr">helpers</span>: <span class="hljs-title class_">Helpers</span>,
   </span>) =&gt;</span> <span class="hljs-title class_">Queryable</span>&lt;<span class="hljs-title class_">TResult</span>&gt; | <span class="hljs-title class_">TerminalQuery</span>&lt;<span class="hljs-title class_">TResult</span>&gt;,
-  <span class="hljs-attr">paramDefaults</span>?: <span class="hljs-title class_">TParams</span>,
+  <span class="hljs-attr">options</span>?: <span class="hljs-title class_">ParseQueryOptions</span>,
 ): <span class="hljs-title class_">SelectPlanHandle</span>&lt;<span class="hljs-title class_">TResult</span>, <span class="hljs-title class_">TParams</span>&gt; | <span class="hljs-title class_">SelectTerminalHandle</span>&lt;<span class="hljs-title class_">TResult</span>, <span class="hljs-title class_">TParams</span>&gt;;
 
 <span class="hljs-keyword">function</span> defineInsert&lt;<span class="hljs-title class_">TSchema</span>, <span class="hljs-title class_">TParams</span>, <span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TReturning</span>&gt;(
   <span class="hljs-attr">schema</span>: <span class="hljs-title class_">DatabaseSchema</span>&lt;<span class="hljs-title class_">TSchema</span>&gt;,
   <span class="hljs-attr">queryBuilder</span>: <span class="hljs-function">(<span class="hljs-params"><span class="hljs-attr">q</span>: <span class="hljs-title class_">QueryBuilder</span>&lt;<span class="hljs-title class_">TSchema</span>&gt;, <span class="hljs-attr">params</span>: <span class="hljs-title class_">TParams</span>, <span class="hljs-attr">helpers</span>: <span class="hljs-title class_">Helpers</span></span>) =&gt;</span> <span class="hljs-title class_">InsertQuery</span>,
-  <span class="hljs-attr">paramDefaults</span>?: <span class="hljs-title class_">TParams</span>,
+  <span class="hljs-attr">options</span>?: <span class="hljs-title class_">ParseQueryOptions</span>,
 ): <span class="hljs-title class_">InsertPlanHandle</span>&lt;<span class="hljs-title class_">TTable</span>, <span class="hljs-title class_">TReturning</span>, <span class="hljs-title class_">TParams</span>&gt;;
 
 <span class="hljs-comment">// Execution functions (in adapters)</span>
