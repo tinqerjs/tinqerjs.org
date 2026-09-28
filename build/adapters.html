@@ -176,6 +176,7 @@
 <li>RETURNING clauses are fully supported on INSERT, UPDATE, and DELETE through the execution helpers.</li>
 <li>Parameter placeholders use the <code>$()</code> syntax expected by pg-promise (e.g., <code>$(minAge)</code>).</li>
 <li>Window functions (<code>ROW_NUMBER()</code>, <code>RANK()</code>, <code>DENSE_RANK()</code>) are fully supported.</li>
+<li>Full-text search (via <a href="guide.md#17-full-text-search"><code>withFts</code></a>) emits <code>tsvector @@ tsquery</code> for <code>helpers.fts.match</code> and <code>ts_rank(...)</code> for <code>helpers.fts.rank</code>. The vector is an inline <code>to_tsvector(config, …)</code> over the declared columns, or a stored, GIN-indexed column when <code>pg.vector</code> is set; <code>mode</code> selects the <code>*_tsquery</code> function (<code>websearch</code>/<code>plain</code>/<code>phrase</code>/<code>raw</code>). Create the GIN index yourself.</li>
 </ul>
 <hr>
 <h2 id="2-sqlite-adapter" tabindex="-1"><a class="anchor" href="#2-sqlite-adapter" aria-hidden="true">#</a> 2. SQLite Adapter</h2>
@@ -260,6 +261,7 @@ db.<span class="hljs-title function_">exec</span>(<span class="hljs-string">`
 <li>All parameters are passed as named values (e.g., <code>@__p1</code>, <code>@minAge</code>). The adapter converts booleans and dates to SQLite-friendly values automatically.</li>
 <li>The execution helpers return row counts. SQLite currently ignores RETURNING clauses when running through the helpers; use a follow-up SELECT if you need inserted rows.</li>
 <li>Window functions (<code>ROW_NUMBER()</code>, <code>RANK()</code>, <code>DENSE_RANK()</code>) require <strong>SQLite 3.25 or later</strong>.</li>
+<li>Full-text search (via <a href="guide.md#17-full-text-search"><code>withFts</code></a>) targets an <strong>FTS5 virtual table</strong> you create (<code>sqlite.table</code>). <code>helpers.fts.match</code> emits <code>&lt;key&gt; IN (SELECT rowid FROM &lt;fts&gt; WHERE &lt;fts&gt; MATCH @q)</code>; <code>helpers.fts.rank</code> emits a correlated <code>-bm25(&lt;fts&gt;)</code> subquery (negated so higher = more relevant). The PostgreSQL-only <code>mode</code>/<code>config</code> options are ignored; the FTS5 query string is used as-is.</li>
 </ul>
 <hr>
 <h2 id="3-key-differences" tabindex="-1"><a class="anchor" href="#3-key-differences" aria-hidden="true">#</a> 3. Key Differences</h2>

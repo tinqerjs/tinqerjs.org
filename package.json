@@ -11,9 +11,13 @@
   "keywords": ["tinqer", "documentation"],
   "author": "",
   "license": "MIT",
+  "engines": {
+    "node": "^22.13.0 || >=24",
+    "npm": ">=11.19.0"
+  },
   "dependencies": {
-    "highlight.js": "^11.9.0",
-    "markdown-it": "^14.0.0",
-    "markdown-it-anchor": "^8.6.7"
+    "highlight.js": "^11.12.0",
+    "markdown-it": "^15.0.2",
+    "markdown-it-anchor": "^10.0.0"
   }
 }

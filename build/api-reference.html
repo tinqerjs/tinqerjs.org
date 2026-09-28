@@ -74,6 +74,7 @@
 <li><a href="#21-createschema">2.1 createSchema</a></li>
 <li><a href="#22-withrowfilters">2.2 withRowFilters</a></li>
 <li><a href="#23-withcontext">2.3 withContext</a></li>
+<li><a href="#24-withfts">2.4 withFts</a></li>
 </ul>
 </li>
 <li><a href="#3-helper-utilities">3. Helper Utilities</a>
@@ -554,6 +555,29 @@ q.<span class="hljs-title function_">update</span>(<span class="hljs-string">&qu
 <pre class="hljs"><code><span class="hljs-keyword">const</span> schema = rowFilteredSchema.<span class="hljs-title function_">withContext</span>({ <span class="hljs-attr">orgId</span>: <span class="hljs-number">7</span> });
 </code></pre>
 <p>Once bound, you can pass the schema to <code>defineSelect</code> / <code>executeSelect</code> / <code>toSql</code> (and the UPDATE/DELETE equivalents) and the policy is applied automatically.</p>
+<h3 id="24-withfts" tabindex="-1"><a class="anchor" href="#24-withfts" aria-hidden="true">#</a> 2.4 withFts</h3>
+<p>Declares full-text-search indexes per table, returning a schema on which the <code>helpers.fts.match</code> / <code>helpers.fts.rank</code> helpers can be used. Tinqer emits the query but creates no DDL — the backing objects (PostgreSQL <code>tsvector</code>/GIN index or SQLite FTS5 virtual table) are the developer’s responsibility.</p>
+<pre class="hljs"><code><span class="hljs-keyword">import</span> { createSchema } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;@tinqerjs/tinqer&quot;</span>;
+
+<span class="hljs-keyword">interface</span> <span class="hljs-title class_">Schema</span> {
+  <span class="hljs-attr">articles</span>: { <span class="hljs-attr">id</span>: <span class="hljs-built_in">number</span>; <span class="hljs-attr">title</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">content</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">search_vector</span>: <span class="hljs-built_in">string</span> };
+}
+
+<span class="hljs-keyword">const</span> schema = createSchema&lt;<span class="hljs-title class_">Schema</span>&gt;().<span class="hljs-title function_">withFts</span>({
+  <span class="hljs-attr">articles</span>: {
+    <span class="hljs-attr">columns</span>: [<span class="hljs-string">&quot;title&quot;</span>, <span class="hljs-string">&quot;content&quot;</span>],
+    <span class="hljs-attr">pg</span>: { <span class="hljs-attr">config</span>: <span class="hljs-string">&quot;english&quot;</span> <span class="hljs-comment">/*, vector: &quot;search_vector&quot; */</span> },
+    <span class="hljs-attr">sqlite</span>: { <span class="hljs-attr">table</span>: <span class="hljs-string">&quot;articles_fts&quot;</span> <span class="hljs-comment">/*, key: &quot;id&quot; */</span> },
+  },
+});
+</code></pre>
+<p>Per-table config (<code>FtsTableConfig</code>):</p>
+<ul>
+<li><code>columns: string[]</code> — columns the index covers (PostgreSQL inline <code>to_tsvector</code> source and match default).</li>
+<li><code>pg?: { config?: string; vector?: string }</code> — text-search <code>config</code> (regconfig, default <code>&quot;simple&quot;</code>); set <code>vector</code> to a stored, GIN-indexed tsvector column to match/rank against it instead of inline <code>to_tsvector</code>.</li>
+<li><code>sqlite?: { table: string; key?: string }</code> — the FTS5 virtual <code>table</code>, and the base-table <code>key</code> aligned with its <code>rowid</code> (default <code>&quot;rowid&quot;</code>).</li>
+</ul>
+<p>Resolution happens at plan-finalize time; using <code>helpers.fts.*</code> on a table with no <code>withFts</code> entry throws. See <a href="guide.md#17-full-text-search">Full-Text Search</a> for the full mapping and how to create the backing objects.</p>
 <hr>
 <h2 id="3-helper-utilities" tabindex="-1"><a class="anchor" href="#3-helper-utilities" aria-hidden="true">#</a> 3. Helper Utilities</h2>
 <h3 id="31-createqueryhelpers" tabindex="-1"><a class="anchor" href="#31-createqueryhelpers" aria-hidden="true">#</a> 3.1 createQueryHelpers</h3>
@@ -590,6 +614,13 @@ q.<span class="hljs-title function_">update</span>(<span class="hljs-string">&qu
 <li><code>helpers.window(row).denseRank()</code></li>
 </ul>
 <p>These are parsed into SQL window functions (they should never run at runtime).</p>
+<p><strong>Full-Text Search</strong></p>
+<p>On schemas declared with <a href="#24-withfts"><code>withFts</code></a>, helpers expose full-text search:</p>
+<ul>
+<li><code>helpers.fts.match(target, query, options?)</code> - boolean predicate for <code>where</code> (<code>tsvector @@ tsquery</code> on PostgreSQL, FTS5 <code>MATCH</code> on SQLite)</li>
+<li><code>helpers.fts.rank(target, query, options?)</code> - relevance score for <code>select</code> / <code>orderBy</code>, higher = more relevant (<code>ts_rank</code> on PostgreSQL, negated <code>bm25</code> on SQLite)</li>
+</ul>
+<p><code>target</code> is the row (whole index), a column, or an array of columns. <code>options</code> is <code>{ mode?: &quot;websearch&quot; | &quot;plain&quot; | &quot;phrase&quot; | &quot;raw&quot;; config?: string }</code> (PostgreSQL only). Like the other helpers, these are parsed for SQL generation and never run at runtime.</p>
 <p><strong>createQueryHelpers</strong></p>
 <p>You usually do not need to call this directly (adapters provide helpers automatically), but it is exported for custom integrations:</p>
 <pre class="hljs"><code><span class="hljs-keyword">import</span> { createQueryHelpers } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;@tinqerjs/tinqer&quot;</span>;
@@ -613,6 +644,7 @@ q.<span class="hljs-title function_">update</span>(<span class="hljs-string">&qu
   <li class="toc-sub"><a href="#21-createschema">2.1 createSchema</a></li>
   <li class="toc-sub"><a href="#22-withrowfilters">2.2 withRowFilters</a></li>
   <li class="toc-sub"><a href="#23-withcontext">2.3 withContext</a></li>
+  <li class="toc-sub"><a href="#24-withfts">2.4 withFts</a></li>
   <li><a href="#3-helper-utilities">3. Helper Utilities</a></li>
   <li class="toc-sub"><a href="#31-createqueryhelpers">3.1 createQueryHelpers</a></li>
 </ul>

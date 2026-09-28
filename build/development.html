@@ -105,11 +105,24 @@
 <h2 id="1-getting-started" tabindex="-1"><a class="anchor" href="#1-getting-started" aria-hidden="true">#</a> 1. Getting Started</h2>
 <h3 id="11-prerequisites" tabindex="-1"><a class="anchor" href="#11-prerequisites" aria-hidden="true">#</a> 1.1 Prerequisites</h3>
 <ul>
-<li>Node.js 22+ (required; see <code>package.json</code> <code>engines.node</code>)</li>
-<li>npm (workspaces; typically bundled with Node)</li>
+<li>Node.js 22.13+ in the 22.x line, or Node.js 24+ (Node.js 26 is used for verification)</li>
+<li>npm 11.19+ (workspaces, release-age filtering and version-pinned install-script approvals)</li>
 <li>Docker + Docker Compose (optional, for PostgreSQL integration tests via <code>devenv/docker-compose.yml</code>)</li>
 </ul>
 <h3 id="12-installation" tabindex="-1"><a class="anchor" href="#12-installation" aria-hidden="true">#</a> 1.2 Installation</h3>
+<p>Both the library and documentation site enforce a seven-day minimum npm release
+age through their project <code>.npmrc</code>. Strict engine checks reject npm versions
+that cannot enforce the policy. Keep these safeguards enabled when refreshing
+dependencies. The library approves native setup scripts only for the exact
+reviewed <code>better-sqlite3</code> and <code>esbuild</code> versions in <code>package.json</code>; review and
+update those pins when upgrading either dependency.</p>
+<p>All workspaces compile tests with TypeScript 6 into their ignored <code>.tests/</code>
+directory and run that JavaScript in Mocha against the current <code>dist/</code> build.
+Query tests inspect callback source, so an alternative runtime transpiler can
+change the behavior being tested. <code>npm test</code> compiles the tests before running;
+<code>npm run build</code> checks both source and tests under the strict project settings.
+Rebuild the library after source changes. For continuous test editing, run
+<code>npm run test:build -- --watch</code> in the package alongside <code>npm run test:watch</code>.</p>
 <pre class="hljs"><code><span class="hljs-comment"># Clone the repository</span>
 git <span class="hljs-built_in">clone</span> https://github.com/tinqerjs/tinqer.git
 <span class="hljs-built_in">cd</span> tinqer

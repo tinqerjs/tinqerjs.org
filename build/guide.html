@@ -162,6 +162,15 @@
 <li><a href="#163-behavior-notes">16.3 Behavior Notes</a></li>
 </ul>
 </li>
+<li><a href="#17-full-text-search">17. Full-Text Search</a>
+<ul>
+<li><a href="#171-declaring-an-fts-index">17.1 Declaring an FTS Index</a></li>
+<li><a href="#172-matching-and-ranking">17.2 Matching and Ranking</a></li>
+<li><a href="#173-scoping-columns-and-options">17.3 Scoping Columns and Options</a></li>
+<li><a href="#174-creating-the-backing-indextable">17.4 Creating the Backing Index/Table</a></li>
+<li><a href="#175-behavior-notes">17.5 Behavior Notes</a></li>
+</ul>
+</li>
 </ul>
 <hr>
 <h2 id="1-filtering-operations" tabindex="-1"><a class="anchor" href="#1-filtering-operations" aria-hidden="true">#</a> 1. Filtering Operations</h2>
@@ -2197,6 +2206,103 @@ Full table updates are dangerous and must be explicitly allowed.
 <li>For left joins, row filters are applied inside derived tables to preserve outer join semantics.</li>
 <li>For updates, an additional safety predicate is applied so updates can’t “move” a row outside of the allowed filter scope via SET.</li>
 </ul>
+<h2 id="17-full-text-search" tabindex="-1"><a class="anchor" href="#17-full-text-search" aria-hidden="true">#</a> 17. Full-Text Search</h2>
+<p>Tinqer can emit native full-text-search queries on both dialects. It is <strong>opt-in per table</strong> via <code>withFts</code>, and Tinqer only generates the query — you are responsible for the backing objects (a PostgreSQL <code>tsvector</code>/GIN index or an SQLite FTS5 virtual table). Ordinary <code>LIKE</code> / case-insensitive helpers remain available; FTS is purely additive.</p>
+<p>Two helpers are exposed on the query lambda’s third (<code>helpers</code>) argument:</p>
+<ul>
+<li><code>helpers.fts.match(target, query, options?)</code> — a boolean predicate for <code>where</code>.</li>
+<li><code>helpers.fts.rank(target, query, options?)</code> — a relevance score (a value usable in <code>select</code> / <code>orderBy</code>). Higher is more relevant on <strong>every</strong> dialect.</li>
+</ul>
+<h3 id="171-declaring-an-fts-index" tabindex="-1"><a class="anchor" href="#171-declaring-an-fts-index" aria-hidden="true">#</a> 17.1 Declaring an FTS Index</h3>
+<pre class="hljs"><code><span class="hljs-keyword">import</span> { createSchema } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;@tinqerjs/tinqer&quot;</span>;
+
+<span class="hljs-keyword">interface</span> <span class="hljs-title class_">Schema</span> {
+  <span class="hljs-attr">articles</span>: { <span class="hljs-attr">id</span>: <span class="hljs-built_in">number</span>; <span class="hljs-attr">title</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">content</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">search_vector</span>: <span class="hljs-built_in">string</span> };
+}
+
+<span class="hljs-keyword">const</span> schema = createSchema&lt;<span class="hljs-title class_">Schema</span>&gt;().<span class="hljs-title function_">withFts</span>({
+  <span class="hljs-attr">articles</span>: {
+    <span class="hljs-comment">// Columns the index covers (PostgreSQL inline to_tsvector source + match default).</span>
+    <span class="hljs-attr">columns</span>: [<span class="hljs-string">&quot;title&quot;</span>, <span class="hljs-string">&quot;content&quot;</span>],
+    <span class="hljs-comment">// PostgreSQL: text-search config (regconfig, default &quot;simple&quot;); set `vector` to a stored,</span>
+    <span class="hljs-comment">// GIN-indexed tsvector column to match/rank against it instead of inline to_tsvector.</span>
+    <span class="hljs-attr">pg</span>: { <span class="hljs-attr">config</span>: <span class="hljs-string">&quot;english&quot;</span> <span class="hljs-comment">/*, vector: &quot;search_vector&quot; */</span> },
+    <span class="hljs-comment">// SQLite: the FTS5 virtual table, and the base-table key aligned with its rowid (default &quot;rowid&quot;).</span>
+    <span class="hljs-attr">sqlite</span>: { <span class="hljs-attr">table</span>: <span class="hljs-string">&quot;articles_fts&quot;</span> <span class="hljs-comment">/*, key: &quot;id&quot; */</span> },
+  },
+});
+</code></pre>
+<h3 id="172-matching-and-ranking" tabindex="-1"><a class="anchor" href="#172-matching-and-ranking" aria-hidden="true">#</a> 17.2 Matching and Ranking</h3>
+<pre class="hljs"><code><span class="hljs-keyword">const</span> results = <span class="hljs-keyword">await</span> <span class="hljs-title function_">executeSelect</span>(
+  db,
+  schema,
+  <span class="hljs-function">(<span class="hljs-params">q, p, h</span>) =&gt;</span>
+    q
+      .<span class="hljs-title function_">from</span>(<span class="hljs-string">&quot;articles&quot;</span>)
+      .<span class="hljs-title function_">where</span>(<span class="hljs-function">(<span class="hljs-params">a</span>) =&gt;</span> h.<span class="hljs-property">fts</span>.<span class="hljs-title function_">match</span>(a, p.<span class="hljs-property">term</span>))
+      .<span class="hljs-title function_">orderByDescending</span>(<span class="hljs-function">(<span class="hljs-params">a</span>) =&gt;</span> h.<span class="hljs-property">fts</span>.<span class="hljs-title function_">rank</span>(a, p.<span class="hljs-property">term</span>))
+      .<span class="hljs-title function_">select</span>(<span class="hljs-function">(<span class="hljs-params">a</span>) =&gt;</span> ({ <span class="hljs-attr">id</span>: a.<span class="hljs-property">id</span>, <span class="hljs-attr">title</span>: a.<span class="hljs-property">title</span>, <span class="hljs-attr">score</span>: h.<span class="hljs-property">fts</span>.<span class="hljs-title function_">rank</span>(a, p.<span class="hljs-property">term</span>) })),
+  { <span class="hljs-attr">term</span>: <span class="hljs-string">&quot;graph databases&quot;</span> },
+);
+</code></pre>
+<p>PostgreSQL (inline <code>to_tsvector</code>):</p>
+<pre class="hljs"><code><span class="hljs-keyword">SELECT</span> &quot;id&quot; <span class="hljs-keyword">AS</span> &quot;id&quot;, &quot;title&quot; <span class="hljs-keyword">AS</span> &quot;title&quot;,
+       ts_rank(to_tsvector(<span class="hljs-string">&#x27;english&#x27;</span>, <span class="hljs-built_in">coalesce</span>(&quot;title&quot;, <span class="hljs-string">&#x27;&#x27;</span>) <span class="hljs-operator">||</span> <span class="hljs-string">&#x27; &#x27;</span> <span class="hljs-operator">||</span> <span class="hljs-built_in">coalesce</span>(&quot;content&quot;, <span class="hljs-string">&#x27;&#x27;</span>)),
+               websearch_to_tsquery(<span class="hljs-string">&#x27;english&#x27;</span>, $(term))) <span class="hljs-keyword">AS</span> &quot;score&quot;
+<span class="hljs-keyword">FROM</span> &quot;articles&quot;
+<span class="hljs-keyword">WHERE</span> to_tsvector(<span class="hljs-string">&#x27;english&#x27;</span>, <span class="hljs-built_in">coalesce</span>(&quot;title&quot;, <span class="hljs-string">&#x27;&#x27;</span>) <span class="hljs-operator">||</span> <span class="hljs-string">&#x27; &#x27;</span> <span class="hljs-operator">||</span> <span class="hljs-built_in">coalesce</span>(&quot;content&quot;, <span class="hljs-string">&#x27;&#x27;</span>))
+      @@ websearch_to_tsquery(<span class="hljs-string">&#x27;english&#x27;</span>, $(term))
+<span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> ts_rank(...) <span class="hljs-keyword">DESC</span>
+</code></pre>
+<p>SQLite (FTS5 virtual table):</p>
+<pre class="hljs"><code><span class="hljs-keyword">SELECT</span> &quot;id&quot; <span class="hljs-keyword">AS</span> &quot;id&quot;, &quot;title&quot; <span class="hljs-keyword">AS</span> &quot;title&quot;,
+       (<span class="hljs-keyword">SELECT</span> <span class="hljs-operator">-</span>bm25(&quot;articles_fts&quot;) <span class="hljs-keyword">FROM</span> &quot;articles_fts&quot;
+        <span class="hljs-keyword">WHERE</span> &quot;articles_fts&quot; <span class="hljs-keyword">MATCH</span> <span class="hljs-variable">@term</span> <span class="hljs-keyword">AND</span> &quot;articles_fts&quot;.&quot;rowid&quot; <span class="hljs-operator">=</span> &quot;articles&quot;.&quot;rowid&quot;) <span class="hljs-keyword">AS</span> &quot;score&quot;
+<span class="hljs-keyword">FROM</span> &quot;articles&quot;
+<span class="hljs-keyword">WHERE</span> &quot;articles&quot;.&quot;rowid&quot; <span class="hljs-keyword">IN</span> (<span class="hljs-keyword">SELECT</span> &quot;rowid&quot; <span class="hljs-keyword">FROM</span> &quot;articles_fts&quot; <span class="hljs-keyword">WHERE</span> &quot;articles_fts&quot; <span class="hljs-keyword">MATCH</span> <span class="hljs-variable">@term</span>)
+<span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> (<span class="hljs-keyword">SELECT</span> <span class="hljs-operator">-</span>bm25(&quot;articles_fts&quot;) <span class="hljs-keyword">FROM</span> &quot;articles_fts&quot; <span class="hljs-keyword">WHERE</span> ...) <span class="hljs-keyword">DESC</span>
+</code></pre>
+<p><code>bm25</code> is lower-is-better, so Tinqer negates it — <code>rank</code> is uniformly higher-is-better across dialects.</p>
+<h3 id="173-scoping-columns-and-options" tabindex="-1"><a class="anchor" href="#173-scoping-columns-and-options" aria-hidden="true">#</a> 17.3 Scoping Columns and Options</h3>
+<p>The first argument scopes the match/rank:</p>
+<ul>
+<li>the row parameter (<code>a</code>) → the table’s whole declared index.</li>
+<li>a single column (<code>a.title</code>) → just that column.</li>
+<li>an array (<code>[a.title, a.content]</code>) → those columns.</li>
+</ul>
+<p>Options interpret the query string on PostgreSQL:</p>
+<ul>
+<li><code>mode</code>: <code>&quot;websearch&quot;</code> (default), <code>&quot;plain&quot;</code>, <code>&quot;phrase&quot;</code>, or <code>&quot;raw&quot;</code> — selects <code>websearch_to_tsquery</code> / <code>plainto_tsquery</code> / <code>phraseto_tsquery</code> / <code>to_tsquery</code>.</li>
+<li><code>config</code>: a per-call regconfig override (e.g. <code>{ config: &quot;simple&quot; }</code>).</li>
+</ul>
+<pre class="hljs"><code>q.<span class="hljs-title function_">from</span>(<span class="hljs-string">&quot;articles&quot;</span>).<span class="hljs-title function_">where</span>(<span class="hljs-function">(<span class="hljs-params">a</span>) =&gt;</span>
+  h.<span class="hljs-property">fts</span>.<span class="hljs-title function_">match</span>(a.<span class="hljs-property">title</span>, p.<span class="hljs-property">term</span>, { <span class="hljs-attr">mode</span>: <span class="hljs-string">&quot;phrase&quot;</span>, <span class="hljs-attr">config</span>: <span class="hljs-string">&quot;english&quot;</span> }),
+);
+</code></pre>
+<p>SQLite uses the FTS5 query string as-is (the <code>mode</code>/<code>config</code> options are PostgreSQL-specific); column scoping there is defined by the virtual table’s own columns.</p>
+<h3 id="174-creating-the-backing-index%2Ftable" tabindex="-1"><a class="anchor" href="#174-creating-the-backing-index%2Ftable" aria-hidden="true">#</a> 17.4 Creating the Backing Index/Table</h3>
+<p>Tinqer performs <strong>no DDL</strong> — create the backing objects yourself (e.g. in a migration).</p>
+<p>PostgreSQL, inline (no extra objects required, but add a GIN index for speed):</p>
+<pre class="hljs"><code><span class="hljs-keyword">CREATE</span> INDEX articles_fts_idx <span class="hljs-keyword">ON</span> articles
+  <span class="hljs-keyword">USING</span> GIN (to_tsvector(<span class="hljs-string">&#x27;english&#x27;</span>, <span class="hljs-built_in">coalesce</span>(title, <span class="hljs-string">&#x27;&#x27;</span>) <span class="hljs-operator">||</span> <span class="hljs-string">&#x27; &#x27;</span> <span class="hljs-operator">||</span> <span class="hljs-built_in">coalesce</span>(content, <span class="hljs-string">&#x27;&#x27;</span>)));
+</code></pre>
+<p>PostgreSQL, stored vector column (set <code>pg.vector: &quot;search_vector&quot;</code>):</p>
+<pre class="hljs"><code><span class="hljs-keyword">ALTER TABLE</span> articles <span class="hljs-keyword">ADD</span> <span class="hljs-keyword">COLUMN</span> search_vector tsvector
+  GENERATED ALWAYS <span class="hljs-keyword">AS</span> (to_tsvector(<span class="hljs-string">&#x27;english&#x27;</span>, <span class="hljs-built_in">coalesce</span>(title, <span class="hljs-string">&#x27;&#x27;</span>) <span class="hljs-operator">||</span> <span class="hljs-string">&#x27; &#x27;</span> <span class="hljs-operator">||</span> <span class="hljs-built_in">coalesce</span>(content, <span class="hljs-string">&#x27;&#x27;</span>))) STORED;
+<span class="hljs-keyword">CREATE</span> INDEX articles_fts_idx <span class="hljs-keyword">ON</span> articles <span class="hljs-keyword">USING</span> GIN (search_vector);
+</code></pre>
+<p>SQLite, FTS5 external-content virtual table aligned with the base table’s rowid:</p>
+<pre class="hljs"><code><span class="hljs-keyword">CREATE</span> VIRTUAL <span class="hljs-keyword">TABLE</span> articles_fts <span class="hljs-keyword">USING</span> fts5(title, content, content<span class="hljs-operator">=</span><span class="hljs-string">&#x27;articles&#x27;</span>, content_rowid<span class="hljs-operator">=</span><span class="hljs-string">&#x27;id&#x27;</span>);
+<span class="hljs-keyword">INSERT INTO</span> articles_fts (rowid, title, content) <span class="hljs-keyword">SELECT</span> id, title, content <span class="hljs-keyword">FROM</span> articles;
+<span class="hljs-comment">-- keep it in sync with triggers on insert/update/delete</span>
+</code></pre>
+<h3 id="175-behavior-notes" tabindex="-1"><a class="anchor" href="#175-behavior-notes" aria-hidden="true">#</a> 17.5 Behavior Notes</h3>
+<ul>
+<li>FTS is resolved at plan-finalize time: using <code>helpers.fts.*</code> without a matching <code>withFts</code> entry for the source table throws (fail closed).</li>
+<li><code>match</code> is a boolean and composes with other <code>where</code> conditions via <code>&amp;&amp;</code> / <code>||</code>; <code>rank</code> is a value and composes in <code>select</code> / <code>orderBy</code>.</li>
+<li>The query string is always a bound parameter — never string-interpolated — so it is injection-safe.</li>
+<li>V1 targets the query’s single source table; FTS is not resolved across joins.</li>
+</ul>
 <p><a href="../README.md">← Back to README</a></p>
 
       </article>
@@ -2271,6 +2377,12 @@ Full table updates are dangerous and must be explicitly allowed.
   <li class="toc-sub"><a href="#161-basic-usage">16.1 Basic Usage</a></li>
   <li class="toc-sub"><a href="#162-per-operation-filters">16.2 Per-Operation Filters</a></li>
   <li class="toc-sub"><a href="#163-behavior-notes">16.3 Behavior Notes</a></li>
+  <li><a href="#17-full-text-search">17. Full-Text Search</a></li>
+  <li class="toc-sub"><a href="#171-declaring-an-fts-index">17.1 Declaring an FTS Index</a></li>
+  <li class="toc-sub"><a href="#172-matching-and-ranking">17.2 Matching and Ranking</a></li>
+  <li class="toc-sub"><a href="#173-scoping-columns-and-options">17.3 Scoping Columns and Options</a></li>
+  <li class="toc-sub"><a href="#174-creating-the-backing-index%2Ftable">17.4 Creating the Backing Index/Table</a></li>
+  <li class="toc-sub"><a href="#175-behavior-notes">17.5 Behavior Notes</a></li>
 </ul>
 </nav>
     </div>
