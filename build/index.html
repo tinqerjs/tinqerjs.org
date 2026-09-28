@@ -403,6 +403,45 @@ npm install @tinqerjs/better-sqlite3-adapter
 </code></pre>
 <p><strong>Automatic Subquery Wrapping</strong>: Tinqer automatically detects when <code>where()</code> clauses reference window function columns and wraps the query in a subquery, since SQL doesn’t allow filtering on window functions at the same level where they’re defined.</p>
 <p>See the <a href="docs/guide.md#8-window-functions">Window Functions Guide</a> for detailed examples of <code>RANK()</code>, <code>DENSE_RANK()</code>, complex ordering, and <a href="docs/guide.md#85-filtering-on-window-function-results">filtering on window results</a>.</p>
+<h3 id="full-text-search" tabindex="-1"><a class="anchor" href="#full-text-search" aria-hidden="true">#</a> Full-Text Search</h3>
+<p>Opt into full-text search per table with <code>withFts</code>, then use the <code>helpers.fts.match</code> (a boolean predicate) and <code>helpers.fts.rank</code> (a relevance score, higher = more relevant) helpers. Tinqer only <strong>emits</strong> the query — you are responsible for the underlying FTS objects (a PostgreSQL <code>tsvector</code>/GIN index or an SQLite FTS5 virtual table). Plain <code>LIKE</code>/<code>icontains</code> stays available; FTS is purely additive.</p>
+<pre class="hljs"><code><span class="hljs-keyword">import</span> { createSchema } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;@tinqerjs/tinqer&quot;</span>;
+
+<span class="hljs-keyword">interface</span> <span class="hljs-title class_">Schema</span> {
+  <span class="hljs-attr">articles</span>: { <span class="hljs-attr">id</span>: <span class="hljs-built_in">number</span>; <span class="hljs-attr">title</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">content</span>: <span class="hljs-built_in">string</span> };
+}
+
+<span class="hljs-keyword">const</span> schema = createSchema&lt;<span class="hljs-title class_">Schema</span>&gt;().<span class="hljs-title function_">withFts</span>({
+  <span class="hljs-comment">// PostgreSQL: inline to_tsvector over these columns (or set pg.vector to a stored tsvector column).</span>
+  <span class="hljs-comment">// SQLite: matching/ranking happens through the FTS5 virtual table.</span>
+  <span class="hljs-attr">articles</span>: {
+    <span class="hljs-attr">columns</span>: [<span class="hljs-string">&quot;title&quot;</span>, <span class="hljs-string">&quot;content&quot;</span>],
+    <span class="hljs-attr">pg</span>: { <span class="hljs-attr">config</span>: <span class="hljs-string">&quot;english&quot;</span> },
+    <span class="hljs-attr">sqlite</span>: { <span class="hljs-attr">table</span>: <span class="hljs-string">&quot;articles_fts&quot;</span> },
+  },
+});
+
+<span class="hljs-keyword">const</span> results = <span class="hljs-keyword">await</span> <span class="hljs-title function_">executeSelect</span>(
+  db,
+  schema,
+  <span class="hljs-function">(<span class="hljs-params">q, p, h</span>) =&gt;</span>
+    q
+      .<span class="hljs-title function_">from</span>(<span class="hljs-string">&quot;articles&quot;</span>)
+      .<span class="hljs-title function_">where</span>(<span class="hljs-function">(<span class="hljs-params">a</span>) =&gt;</span> h.<span class="hljs-property">fts</span>.<span class="hljs-title function_">match</span>(a, p.<span class="hljs-property">term</span>))
+      .<span class="hljs-title function_">orderByDescending</span>(<span class="hljs-function">(<span class="hljs-params">a</span>) =&gt;</span> h.<span class="hljs-property">fts</span>.<span class="hljs-title function_">rank</span>(a, p.<span class="hljs-property">term</span>)),
+  { <span class="hljs-attr">term</span>: <span class="hljs-string">&quot;graph databases&quot;</span> },
+);
+
+<span class="hljs-comment">// PostgreSQL:</span>
+<span class="hljs-comment">//   WHERE to_tsvector(&#x27;english&#x27;, coalesce(&quot;title&quot;, &#x27;&#x27;) || &#x27; &#x27; || coalesce(&quot;content&quot;, &#x27;&#x27;))</span>
+<span class="hljs-comment">//         @@ websearch_to_tsquery(&#x27;english&#x27;, $(term))</span>
+<span class="hljs-comment">//   ORDER BY ts_rank(...) DESC</span>
+<span class="hljs-comment">// SQLite:</span>
+<span class="hljs-comment">//   WHERE &quot;articles&quot;.&quot;rowid&quot; IN (SELECT &quot;rowid&quot; FROM &quot;articles_fts&quot; WHERE &quot;articles_fts&quot; MATCH @term)</span>
+<span class="hljs-comment">//   ORDER BY (SELECT -bm25(&quot;articles_fts&quot;) FROM &quot;articles_fts&quot; WHERE ... ) DESC</span>
+</code></pre>
+<p>The first argument scopes the match: the row (<code>a</code>) covers the table’s whole index, a column (<code>a.title</code>) or array (<code>[a.title, a.content]</code>) restricts it. Options interpret the query string on PostgreSQL — <code>{ mode: &quot;websearch&quot; | &quot;plain&quot; | &quot;phrase&quot; | &quot;raw&quot; }</code> (default <code>websearch</code>) and <code>{ config: &quot;english&quot; }</code> (per-call regconfig override). SQLite uses the FTS5 query string as-is.</p>
+<p>See the <a href="docs/guide.md#17-full-text-search">Full-Text Search Guide</a> for the full mapping, dialect differences, and how to create the backing index/table.</p>
 <h3 id="crud-operations" tabindex="-1"><a class="anchor" href="#crud-operations" aria-hidden="true">#</a> CRUD Operations</h3>
 <pre class="hljs"><code><span class="hljs-keyword">import</span> { createSchema } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;@tinqerjs/tinqer&quot;</span>;
 <span class="hljs-keyword">import</span> { executeInsert, executeUpdate, executeDelete } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;@tinqerjs/pg-promise-adapter&quot;</span>;
@@ -509,6 +548,7 @@ npm install @tinqerjs/better-sqlite3-adapter
 <li><strong>Arrays</strong>: <code>.includes()</code> for IN queries</li>
 <li><strong>Helper functions</strong>: <code>helpers.functions.iequals()</code>, <code>helpers.functions.istartsWith()</code>, <code>helpers.functions.iendsWith()</code>, <code>helpers.functions.icontains()</code> (portable case-insensitive)</li>
 <li><strong>Window functions</strong>: <code>helpers.window(row).partitionBy(...).orderBy(...).rowNumber()</code>, <code>helpers.window(row).rank()</code>, <code>helpers.window(row).denseRank()</code> with <code>orderByDescending()</code>, <code>thenBy()</code>, <code>thenByDescending()</code></li>
+<li><strong>Full-text search</strong> (opt-in via <code>withFts</code>): <code>helpers.fts.match(target, query, options?)</code> (boolean), <code>helpers.fts.rank(target, query, options?)</code> (relevance score)</li>
 </ul>
 <h2 id="database-support" tabindex="-1"><a class="anchor" href="#database-support" aria-hidden="true">#</a> Database Support</h2>
 <h3 id="postgresql" tabindex="-1"><a class="anchor" href="#postgresql" aria-hidden="true">#</a> PostgreSQL</h3>
@@ -517,6 +557,7 @@ npm install @tinqerjs/better-sqlite3-adapter
 <li>Case-insensitive helpers use <code>LOWER()</code> comparisons for portable SQL</li>
 <li>Full JSONB support</li>
 <li>Window functions: <code>ROW_NUMBER()</code>, <code>RANK()</code>, <code>DENSE_RANK()</code></li>
+<li>Full-text search: <code>tsvector @@ tsquery</code> matching (inline <code>to_tsvector</code> or a stored GIN-indexed column) and <code>ts_rank</code> scoring</li>
 <li>Parameter placeholders: <code>$(name)</code> / <code>$(__p1)</code> (pg-promise format)</li>
 </ul>
 <h3 id="sqlite" tabindex="-1"><a class="anchor" href="#sqlite" aria-hidden="true">#</a> SQLite</h3>
@@ -525,6 +566,7 @@ npm install @tinqerjs/better-sqlite3-adapter
 <li>Case-insensitive via <code>LOWER()</code> function</li>
 <li>JSON functions support</li>
 <li>Window functions: <code>ROW_NUMBER()</code>, <code>RANK()</code>, <code>DENSE_RANK()</code> (requires SQLite 3.25+)</li>
+<li>Full-text search: FTS5 virtual-table <code>MATCH</code> and <code>bm25()</code> scoring (negated so higher = more relevant)</li>
 <li>Parameter placeholders: <code>@name</code> / <code>@__p1</code></li>
 </ul>
 <p>See <a href="docs/adapters.md">Database Adapters</a> for detailed comparison.</p>
@@ -589,6 +631,7 @@ npm install @tinqerjs/better-sqlite3-adapter
   <li class="toc-sub"><a href="#joins">Joins</a></li>
   <li class="toc-sub"><a href="#grouping-and-aggregation">Grouping and Aggregation</a></li>
   <li class="toc-sub"><a href="#window-functions">Window Functions</a></li>
+  <li class="toc-sub"><a href="#full-text-search">Full-Text Search</a></li>
   <li class="toc-sub"><a href="#crud-operations">CRUD Operations</a></li>
   <li class="toc-sub"><a href="#parameters-and-auto-parameterisation">Parameters and Auto-Parameterisation</a></li>
   <li class="toc-sub"><a href="#case-insensitive-string-operations">Case-Insensitive String Operations</a></li>
